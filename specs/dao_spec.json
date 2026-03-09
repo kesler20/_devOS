@@ -1,0 +1,895 @@
+[
+  {
+    "name": "TechnologyImage",
+    "table_name": "technology_images",
+    "description": "",
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "primary_key",
+          "table": null,
+          "column": null,
+          "behaviors": [
+            "auto_increment"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "src",
+        "type": "str",
+        "description": "The source URL of the image.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "technology_id",
+        "type": "int",
+        "description": "Foreign key to the technology.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "technologies",
+          "column": "id",
+          "behaviors": [
+            "ondelete_cascade"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "technology",
+        "type": "object",
+        "description": "The technology this image belongs to.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Technology",
+          "property": "technology_images",
+          "cascade": null,
+          "order_by": null,
+          "foreign_key": "technology_id"
+        },
+        "many_to_many": null
+      }
+    ],
+    "association_tables": null,
+    "unique_constraints": [],
+    "enums": null,
+    "imports": null
+  },
+  {
+    "name": "Technology",
+    "table_name": "technologies",
+    "description": "",
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "primary_key",
+          "table": null,
+          "column": null,
+          "behaviors": [
+            "auto_increment"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "name",
+        "type": "str",
+        "description": "The name of the technology.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "short_name",
+        "type": "str",
+        "description": "Short name for the technology.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "description": "A brief description of the technology.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "technology_images",
+        "type": "array",
+        "description": "Images associated with this technology.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "TechnologyImage",
+          "property": "technology",
+          "cascade": "all, delete-orphan",
+          "order_by": null,
+          "foreign_key": null
+        },
+        "many_to_many": null
+      },
+      {
+        "name": "current_version",
+        "type": "int",
+        "description": "Current version number.",
+        "required": true,
+        "default_value": "1",
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "versions",
+        "type": "array",
+        "description": "Version history for this technology.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "TechnologyVersions",
+          "property": "technology",
+          "cascade": "all, delete-orphan",
+          "order_by": "TechnologyVersions.version_number.desc()",
+          "foreign_key": null
+        },
+        "many_to_many": null
+      }
+    ],
+    "association_tables": null,
+    "unique_constraints": [],
+    "enums": null,
+    "imports": null
+  },
+  {
+    "name": "Option",
+    "table_name": "options",
+    "description": "",
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "primary_key",
+          "table": null,
+          "column": null,
+          "behaviors": [
+            "auto_increment"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "text",
+        "type": "str",
+        "description": "The option text.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "question_id",
+        "type": "int",
+        "description": "Foreign key to the question.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questions",
+          "column": "id",
+          "behaviors": [
+            "ondelete_cascade"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "question",
+        "type": "object",
+        "description": "The question this option belongs to.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Question",
+          "property": "options",
+          "cascade": null,
+          "order_by": null,
+          "foreign_key": "question_id"
+        },
+        "many_to_many": null
+      },
+      {
+        "name": "next_question_id",
+        "type": "int",
+        "description": "Foreign key to the next question (nullable).",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questions",
+          "column": "id",
+          "behaviors": [
+            "ondelete_set_null"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "next_question",
+        "type": "object",
+        "description": "The next question when this option is selected.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Question",
+          "property": "",
+          "cascade": null,
+          "order_by": null,
+          "foreign_key": "next_question_id"
+        },
+        "many_to_many": null
+      },
+      {
+        "name": "filter_tech",
+        "type": "many_to_many",
+        "description": "Technologies to filter out when this option is selected.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Technology",
+          "property": "",
+          "cascade": null,
+          "order_by": null,
+          "foreign_key": null
+        },
+        "many_to_many": {
+          "association_table": "option_filter_tech",
+          "self_referential": false,
+          "left_column": null,
+          "right_column": null,
+          "primaryjoin": null,
+          "secondaryjoin": null
+        }
+      },
+      {
+        "name": "avoid_options",
+        "type": "many_to_many",
+        "description": "Options to avoid/hide when this option is selected.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Option",
+          "property": "",
+          "cascade": null,
+          "order_by": null,
+          "foreign_key": null
+        },
+        "many_to_many": {
+          "association_table": "option_avoid_option",
+          "self_referential": true,
+          "left_column": "option_id",
+          "right_column": "avoided_option_id",
+          "primaryjoin": "Option.id == association_dao.OptionAvoidOption.c.option_id",
+          "secondaryjoin": "Option.id == association_dao.OptionAvoidOption.c.avoided_option_id"
+        }
+      }
+    ],
+    "association_tables": [
+      {
+        "table_name": "option_filter_tech",
+        "class_name": null,
+        "columns": [
+          {
+            "name": "option_id",
+            "type": "int",
+            "foreign_key_table": "options",
+            "foreign_key_column": "id",
+            "ondelete": "CASCADE",
+            "primary_key": true
+          },
+          {
+            "name": "technology_id",
+            "type": "int",
+            "foreign_key_table": "technologies",
+            "foreign_key_column": "id",
+            "ondelete": "CASCADE",
+            "primary_key": true
+          }
+        ],
+        "extra_properties": null,
+        "unique_constraints": null
+      },
+      {
+        "table_name": "option_avoid_option",
+        "class_name": null,
+        "columns": [
+          {
+            "name": "option_id",
+            "type": "int",
+            "foreign_key_table": "options",
+            "foreign_key_column": "id",
+            "ondelete": "CASCADE",
+            "primary_key": true
+          },
+          {
+            "name": "avoided_option_id",
+            "type": "int",
+            "foreign_key_table": "options",
+            "foreign_key_column": "id",
+            "ondelete": "CASCADE",
+            "primary_key": true
+          }
+        ],
+        "extra_properties": null,
+        "unique_constraints": null
+      }
+    ],
+    "unique_constraints": [],
+    "enums": null,
+    "imports": null
+  },
+  {
+    "name": "Question",
+    "table_name": "questions",
+    "description": "",
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "primary_key",
+          "table": null,
+          "column": null,
+          "behaviors": [
+            "auto_increment"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "text",
+        "type": "text",
+        "description": "The question text.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "description": "Additional description.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "can_be_answered_automatically",
+        "type": "bool",
+        "description": "Whether the question can be auto-answered.",
+        "required": true,
+        "default_value": "False",
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "order",
+        "type": "int",
+        "description": "Display order.",
+        "required": true,
+        "default_value": "0",
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "questionnaire_id",
+        "type": "int",
+        "description": "Foreign key to the questionnaire.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questionnaires",
+          "column": "id",
+          "behaviors": [
+            "ondelete_cascade"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "questionnaire",
+        "type": "object",
+        "description": "The questionnaire this question belongs to.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Questionnaire",
+          "property": "questions",
+          "cascade": null,
+          "order_by": null,
+          "foreign_key": "questionnaire_id"
+        },
+        "many_to_many": null
+      },
+      {
+        "name": "options",
+        "type": "array",
+        "description": "Options for this question.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Option",
+          "property": "question",
+          "cascade": "all, delete-orphan",
+          "order_by": null,
+          "foreign_key": "Option.question_id"
+        },
+        "many_to_many": null
+      }
+    ],
+    "association_tables": null,
+    "unique_constraints": [],
+    "enums": null,
+    "imports": null
+  },
+  {
+    "name": "Questionnaire",
+    "table_name": "questionnaires",
+    "description": "",
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "primary_key",
+          "table": null,
+          "column": null,
+          "behaviors": [
+            "auto_increment"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "title",
+        "type": "str",
+        "description": "The questionnaire title.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "description": "Description of the questionnaire.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "first_question_id",
+        "type": "int",
+        "description": "Foreign key to the first question.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questions",
+          "column": "id",
+          "behaviors": [
+            "ondelete_set_null"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "first_question",
+        "type": "object",
+        "description": "The first question in the questionnaire.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Question",
+          "property": "",
+          "cascade": null,
+          "order_by": null,
+          "foreign_key": "first_question_id"
+        },
+        "many_to_many": null
+      },
+      {
+        "name": "questions",
+        "type": "array",
+        "description": "All questions in this questionnaire.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Question",
+          "property": "questionnaire",
+          "cascade": "all, delete-orphan",
+          "order_by": null,
+          "foreign_key": "Question.questionnaire_id"
+        },
+        "many_to_many": null
+      },
+      {
+        "name": "current_version",
+        "type": "int",
+        "description": "Current version number.",
+        "required": true,
+        "default_value": "1",
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "versions",
+        "type": "array",
+        "description": "Version history for this questionnaire.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "QuestionnaireVersion",
+          "property": "questionnaire",
+          "cascade": "all, delete-orphan",
+          "order_by": "QuestionnaireVersion.version_number.desc()",
+          "foreign_key": null
+        },
+        "many_to_many": null
+      }
+    ],
+    "association_tables": null,
+    "unique_constraints": [],
+    "enums": null,
+    "imports": null
+  },
+  {
+    "name": "QuestionnaireVersion",
+    "table_name": "questionnaire_versions",
+    "description": "Represents a version snapshot of a questionnaire in the database.",
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier for the version.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "primary_key",
+          "table": null,
+          "column": null,
+          "behaviors": [
+            "auto_increment"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "questionnaire_id",
+        "type": "int",
+        "description": "Foreign key reference to the parent questionnaire.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questionnaires",
+          "column": "id",
+          "behaviors": [
+            "ondelete_cascade"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "questionnaire",
+        "type": "object",
+        "description": "Relationship to the parent Questionnaire entity.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Questionnaire",
+          "property": "versions",
+          "cascade": null,
+          "order_by": null,
+          "foreign_key": null
+        },
+        "many_to_many": null
+      },
+      {
+        "name": "version_number",
+        "type": "int",
+        "description": "Sequential version number for the questionnaire.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "snapshot",
+        "type": "text",
+        "description": "JSON-serialized snapshot of the questionnaire state at this version.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "description": "Timestamp when this version was created (UTC).",
+        "required": true,
+        "default_value": "lambda: datetime.now(UTC)",
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "created_by",
+        "type": "str",
+        "description": "Identifier of the user who created this version.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "change_summary",
+        "type": "text",
+        "description": "Human-readable summary of changes in this version.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      }
+    ],
+    "association_tables": null,
+    "unique_constraints": [
+      [
+        "questionnaire_id",
+        "version_number"
+      ]
+    ],
+    "enums": null,
+    "imports": null
+  },
+  {
+    "name": "TechnologyVersions",
+    "table_name": "technology_versions",
+    "description": "Represents a version snapshot of a technology in the database.",
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier for the version.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "primary_key",
+          "table": null,
+          "column": null,
+          "behaviors": [
+            "auto_increment"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "technology_id",
+        "type": "int",
+        "description": "Foreign key reference to the parent technology.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "technologies",
+          "column": "id",
+          "behaviors": [
+            "ondelete_cascade"
+          ]
+        },
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "technology",
+        "type": "object",
+        "description": "Relationship to the parent Technology entity.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": {
+          "table": "Technology",
+          "property": "versions",
+          "cascade": null,
+          "order_by": null,
+          "foreign_key": null
+        },
+        "many_to_many": null
+      },
+      {
+        "name": "version_number",
+        "type": "int",
+        "description": "Sequential version number for the technology.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "snapshot",
+        "type": "text",
+        "description": "JSON-serialized snapshot of the technology state at this version.",
+        "required": true,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "description": "Timestamp when this version was created (UTC).",
+        "required": true,
+        "default_value": "lambda: datetime.now(UTC)",
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "created_by",
+        "type": "str",
+        "description": "Identifier of the user who created this version.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      },
+      {
+        "name": "change_summary",
+        "type": "text",
+        "description": "Human-readable summary of changes in this version.",
+        "required": false,
+        "default_value": null,
+        "enum_name": null,
+        "key_type": null,
+        "linked_property": null,
+        "many_to_many": null
+      }
+    ],
+    "association_tables": null,
+    "unique_constraints": [
+      [
+        "technology_id",
+        "version_number"
+      ]
+    ],
+    "enums": null,
+    "imports": null
+  }
+]

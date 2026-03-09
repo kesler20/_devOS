@@ -1,0 +1,40 @@
+{
+  "positions": {
+    "node-TechnologyImage": {
+      "x": 778.7249404066836,
+      "y": 201.1798407795795
+    },
+    "node-Technology": {
+      "x": -134.0,
+      "y": 556.0
+    },
+    "node-Option": {
+      "x": -118.682350559344,
+      "y": -35.863306796596476
+    },
+    "node-Question": {
+      "x": -1124.0,
+      "y": 624.0
+    },
+    "node-Questionnaire": {
+      "x": -128.0,
+      "y": 1076.0
+    },
+    "node-QuestionnaireVersion": {
+      "x": 3222.0,
+      "y": 1274.0
+    },
+    "node-TechnologyVersions": {
+      "x": 690.0,
+      "y": 840.0
+    },
+    "node-OptionFilterTech": {
+      "x": -1052.0,
+      "y": 152.0
+    },
+    "node-OptionAvoidOption": {
+      "x": -958.0,
+      "y": -256.0
+    }
+  }
+}

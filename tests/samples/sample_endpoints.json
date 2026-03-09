@@ -1,0 +1,39 @@
+{
+  "title": "Items Collection CRUD Application",
+  "version": "1.0.0",
+  "description": "Endpoints for creating updating and deleting items from a collection.",
+  "include_relationship_endpoints": true,
+  "endpoints": {
+    "collection": [],
+    "item": [
+      {
+        "name": "read_items_by_collection",
+        "description": "Retrieve a list of all items within a specified collection.",
+        "method": "GET",
+        "version": "v1",
+        "path": "collections/{collection_id}/items",
+        "request_schema": {
+          "collection_id": {
+            "type": "string",
+            "description": "The unique identifier of the collection whose items are to be retrieved.",
+            "required": true,
+            "parse_value_from_path": true
+          }
+        },
+        "response_schema": {
+          "items": {
+            "type": "dao",
+            "description": "List of DAO objects returned by the endpoint.",
+            "required": false,
+            "is_list": true,
+            "name": "Item"
+          }
+        },
+        "use_case": {
+          "name": "QueryUseCase",
+          "method": "read_items_by_collection"
+        }
+      }
+    ]
+  }
+}

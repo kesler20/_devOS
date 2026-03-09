@@ -1,0 +1,58 @@
+name: Release Application on Version Tag
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # Necessary to fetch all history for tags
+
+      - name: Generate Release Notes
+        id: generate_release_notes
+        run: |
+          echo "Release Notes:" > release_notes.md
+          echo "# New Features" >> release_notes.md
+          # Get the current tag from github.ref and the previous tag by date
+          CURRENT_TAG="${GITHUB_REF#refs/tags/}"
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^$CURRENT_TAG$" | head -n 1)
+          # If no previous tag, use the first commit
+          if [ -z "$PREV_TAG" ]; then
+            RANGE=""
+          else
+            RANGE="$PREV_TAG..$CURRENT_TAG"
+          fi
+          # Generate features section
+          if [ -z "$RANGE" ]; then
+            git log $CURRENT_TAG --pretty=format:"- %s" | grep -i "feat:" >> release_notes.md || echo "No new features in this release." >> release_notes.md
+          else
+            git log $RANGE --pretty=format:"- %s" | grep -i "feat:" >> release_notes.md || echo "No new features in this release." >> release_notes.md
+          fi
+          echo "# Bug Fixes" >> release_notes.md
+          # Generate bugfixes section
+          if [ -z "$RANGE" ]; then
+            git log $CURRENT_TAG --pretty=format:"- %s" | grep -i "fix:" >> release_notes.md || echo "No bug fixes in this release." >> release_notes.md
+          else
+            git log $RANGE --pretty=format:"- %s" | grep -i "fix:" >> release_notes.md || echo "No bug fixes in this release." >> release_notes.md
+          fi
+          cat release_notes.md
+          echo "::set-output name=release_notes::$(cat release_notes.md)"
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref_name }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false

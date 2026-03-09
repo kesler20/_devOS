@@ -1,0 +1,14 @@
+{
+  "backend": {
+    "services": [[]],
+    "dao": [[]],
+    "dto": [[]],
+    "tests": [[]]
+  },
+  "frontend": {
+    "dto": [[]]
+  },
+  "vault": [[]],
+  "snippets": [[]],
+  "root": [[]]
+}

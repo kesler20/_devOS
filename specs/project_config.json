@@ -1,0 +1,40 @@
+{
+  "home_root": {
+    "snippets": ["protocol", "devOS", "snippets"],
+    "vault": ["protocol", "00 PKM", "3 Resources", "Vault"]
+  },
+  "project_root": {
+    "dao_output_config": [
+      {
+        "directory": ["src", "devOS", "domain", "dao.py"],
+        "language": "python"
+      }
+    ],
+    "dto_output_config": [
+      {
+        "directory": ["src", "devOS", "use_cases", "crud_dto.py"],
+        "language": "python"
+      }
+    ],
+    "api_output_config": [
+      {
+        "directory": ["src", "devOS", "infrastructure", "crud_routes.py"],
+        "language": "python"
+      }
+    ],
+    "test_api_output_config": [
+      {
+        "directory": ["tests", "test_crud_routes.py"],
+        "language": "python"
+      }
+    ],
+    "test_services_output_directory": ["tests"],
+    "adapters_output_directory": [
+      "src",
+      "devOS",
+      "infrastructure",
+      "sqlalchemy_db_adapter.py"
+    ],
+    "use_cases_output_directory": ["src", "devOS", "use_cases", "crud_use_cases.py"]
+  }
+}

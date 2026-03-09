@@ -1,0 +1,62 @@
+# .pre-commit-config.yaml
+default_stages: [pre-commit] # keep fast checks here
+fail_fast: false
+
+repos:
+  # -----------------------
+  # Python: formatting/lint
+  # -----------------------
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        name: python-format (black)
+        language_version: python3
+        files: ^src/.*\.py$
+
+  # -----------------------
+  # Python: type check/tests
+  # Use local hooks so you can call your exact scripts/venv tooling
+  # -----------------------
+  - repo: local
+    hooks:
+      - id: python-typecheck
+        name: python-typecheck (mypy)
+        entry: bash -lc "mypy src"
+        language: system
+        files: ^src/.*\.py$
+        pass_filenames: false
+
+      - id: python-tests
+        name: python-tests (pytest)
+        entry: bash -lc "pytest tests"
+        language: system
+        files: ^tests/.*\.py$
+        pass_filenames: false
+
+  # -----------------------
+  # TypeScript/React: format/lint/typecheck/tests
+  # Assumes you use pnpm; swap for npm/yarn if needed.
+  # -----------------------
+  - repo: local
+    hooks:
+      - id: web-format
+        name: web-format (prettier)
+        entry: bash -lc "pnpm prettier:write"
+        language: system
+        files: ^src/.*\.(ts|tsx|js|jsx|json|css|scss|md|yaml|yml)$
+        pass_filenames: false
+
+      - id: web-typecheck
+        name: web-typecheck (tsc)
+        entry: bash -lc "pnpm typecheck"
+        language: system
+        files: ^src/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: web-tests
+        name: web-tests (unit)
+        entry: bash -lc "pnpm test"
+        language: system
+        files: ^tests/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false

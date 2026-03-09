@@ -1,0 +1,9 @@
+[
+  {
+    "source": "node-2",
+    "sourceHandle": "row-0",
+    "target": "node-1",
+    "targetHandle": "row-1",
+    "id": "reactflow__edge-node-2row-0-node-1row-1"
+  }
+]

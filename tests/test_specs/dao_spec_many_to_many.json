@@ -1,0 +1,562 @@
+[
+  {
+    "name": "TechnologyImage",
+    "table_name": "technology_images",
+    "description": null,
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "key_type": {
+          "type": "primary_key",
+          "behaviors": ["auto_increment"]
+        }
+      },
+      {
+        "name": "src",
+        "type": "str",
+        "description": "The source URL of the image.",
+        "required": true
+      },
+      {
+        "name": "technology_id",
+        "type": "int",
+        "description": "Foreign key to the technology.",
+        "required": true,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "technologies",
+          "column": "id",
+          "behaviors": ["ondelete_cascade"]
+        }
+      },
+      {
+        "name": "technology",
+        "type": "object",
+        "description": "The technology this image belongs to.",
+        "required": false,
+        "linked_property": {
+          "table": "Technology",
+          "property": "technology_images",
+          "foreign_key": "technology_id"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Technology",
+    "table_name": "technologies",
+    "description": null,
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "key_type": {
+          "type": "primary_key",
+          "behaviors": ["auto_increment"]
+        }
+      },
+      {
+        "name": "name",
+        "type": "str",
+        "description": "The name of the technology.",
+        "required": true
+      },
+      {
+        "name": "short_name",
+        "type": "str",
+        "description": "Short name for the technology.",
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "description": "A brief description of the technology.",
+        "required": false
+      },
+      {
+        "name": "technology_images",
+        "type": "array",
+        "description": "Images associated with this technology.",
+        "required": false,
+        "linked_property": {
+          "table": "TechnologyImage",
+          "property": "technology",
+          "cascade": "all, delete-orphan"
+        }
+      },
+      {
+        "name": "current_version",
+        "type": "int",
+        "description": "Current version number.",
+        "required": true,
+        "default_value": "1"
+      },
+      {
+        "name": "versions",
+        "type": "array",
+        "description": "Version history for this technology.",
+        "required": false,
+        "linked_property": {
+          "table": "TechnologyVersions",
+          "property": "technology",
+          "cascade": "all, delete-orphan",
+          "order_by": "TechnologyVersions.version_number.desc()"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Option",
+    "table_name": "options",
+    "description": null,
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "key_type": {
+          "type": "primary_key",
+          "behaviors": ["auto_increment"]
+        }
+      },
+      {
+        "name": "text",
+        "type": "str",
+        "description": "The option text.",
+        "required": true
+      },
+      {
+        "name": "question_id",
+        "type": "int",
+        "description": "Foreign key to the question.",
+        "required": true,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questions",
+          "column": "id",
+          "behaviors": ["ondelete_cascade"]
+        }
+      },
+      {
+        "name": "question",
+        "type": "object",
+        "description": "The question this option belongs to.",
+        "required": false,
+        "linked_property": {
+          "table": "Question",
+          "property": "options",
+          "foreign_key": "question_id"
+        }
+      },
+      {
+        "name": "next_question_id",
+        "type": "int",
+        "description": "Foreign key to the next question (nullable).",
+        "required": false,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questions",
+          "column": "id",
+          "behaviors": ["ondelete_set_null"]
+        }
+      },
+      {
+        "name": "next_question",
+        "type": "object",
+        "description": "The next question when this option is selected.",
+        "required": false,
+        "linked_property": {
+          "table": "Question",
+          "property": "",
+          "foreign_key": "next_question_id"
+        }
+      },
+      {
+        "name": "filter_tech",
+        "type": "many_to_many",
+        "description": "Technologies to filter out when this option is selected.",
+        "required": false,
+        "linked_property": {
+          "table": "Technology",
+          "property": ""
+        },
+        "many_to_many": {
+          "association_table": "option_filter_tech",
+          "self_referential": false
+        }
+      },
+      {
+        "name": "avoid_options",
+        "type": "many_to_many",
+        "description": "Options to avoid/hide when this option is selected.",
+        "required": false,
+        "linked_property": {
+          "table": "Option",
+          "property": ""
+        },
+        "many_to_many": {
+          "association_table": "option_avoid_option",
+          "self_referential": true,
+          "left_column": "option_id",
+          "right_column": "avoided_option_id",
+          "primaryjoin": "Option.id == association_dao.OptionAvoidOption.c.option_id",
+          "secondaryjoin": "Option.id == association_dao.OptionAvoidOption.c.avoided_option_id"
+        }
+      }
+    ],
+    "association_tables": [
+      {
+        "table_name": "option_filter_tech",
+        "columns": [
+          {
+            "name": "option_id",
+            "type": "int",
+            "foreign_key_table": "options",
+            "foreign_key_column": "id",
+            "ondelete": "CASCADE",
+            "primary_key": true
+          },
+          {
+            "name": "technology_id",
+            "type": "int",
+            "foreign_key_table": "technologies",
+            "foreign_key_column": "id",
+            "ondelete": "CASCADE",
+            "primary_key": true
+          }
+        ]
+      },
+      {
+        "table_name": "option_avoid_option",
+        "class_name": "OptionAvoidOption",
+        "columns": [
+          {
+            "name": "option_id",
+            "type": "int",
+            "foreign_key_table": "options",
+            "foreign_key_column": "id",
+            "ondelete": "CASCADE",
+            "primary_key": true
+          },
+          {
+            "name": "avoided_option_id",
+            "type": "int",
+            "foreign_key_table": "options",
+            "foreign_key_column": "id",
+            "ondelete": "CASCADE",
+            "primary_key": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Question",
+    "table_name": "questions",
+    "description": null,
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "key_type": {
+          "type": "primary_key",
+          "behaviors": ["auto_increment"]
+        }
+      },
+      {
+        "name": "text",
+        "type": "text",
+        "description": "The question text.",
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "description": "Additional description.",
+        "required": false
+      },
+      {
+        "name": "can_be_answered_automatically",
+        "type": "bool",
+        "description": "Whether the question can be auto-answered.",
+        "required": true,
+        "default_value": "False"
+      },
+      {
+        "name": "order",
+        "type": "int",
+        "description": "Display order.",
+        "required": true,
+        "default_value": "0"
+      },
+      {
+        "name": "questionnaire_id",
+        "type": "int",
+        "description": "Foreign key to the questionnaire.",
+        "required": true,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questionnaires",
+          "column": "id",
+          "behaviors": ["ondelete_cascade"]
+        }
+      },
+      {
+        "name": "questionnaire",
+        "type": "object",
+        "description": "The questionnaire this question belongs to.",
+        "required": false,
+        "linked_property": {
+          "table": "Questionnaire",
+          "property": "questions",
+          "foreign_key": "questionnaire_id"
+        }
+      },
+      {
+        "name": "options",
+        "type": "array",
+        "description": "Options for this question.",
+        "required": false,
+        "linked_property": {
+          "table": "Option",
+          "property": "question",
+          "cascade": "all, delete-orphan",
+          "foreign_key": "Option.question_id"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Questionnaire",
+    "table_name": "questionnaires",
+    "description": null,
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier.",
+        "required": true,
+        "key_type": {
+          "type": "primary_key",
+          "behaviors": ["auto_increment"]
+        }
+      },
+      {
+        "name": "title",
+        "type": "str",
+        "description": "The questionnaire title.",
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "description": "Description of the questionnaire.",
+        "required": false
+      },
+      {
+        "name": "first_question_id",
+        "type": "int",
+        "description": "Foreign key to the first question.",
+        "required": false,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questions",
+          "column": "id",
+          "behaviors": ["ondelete_set_null"]
+        }
+      },
+      {
+        "name": "first_question",
+        "type": "object",
+        "description": "The first question in the questionnaire.",
+        "required": false,
+        "linked_property": {
+          "table": "Question",
+          "property": "",
+          "foreign_key": "first_question_id"
+        }
+      },
+      {
+        "name": "questions",
+        "type": "array",
+        "description": "All questions in this questionnaire.",
+        "required": false,
+        "linked_property": {
+          "table": "Question",
+          "property": "questionnaire",
+          "cascade": "all, delete-orphan",
+          "foreign_key": "Question.questionnaire_id"
+        }
+      },
+      {
+        "name": "current_version",
+        "type": "int",
+        "description": "Current version number.",
+        "required": true,
+        "default_value": "1"
+      },
+      {
+        "name": "versions",
+        "type": "array",
+        "description": "Version history for this questionnaire.",
+        "required": false,
+        "linked_property": {
+          "table": "QuestionnaireVersion",
+          "property": "questionnaire",
+          "cascade": "all, delete-orphan",
+          "order_by": "QuestionnaireVersion.version_number.desc()"
+        }
+      }
+    ]
+  },
+  {
+    "name": "QuestionnaireVersion",
+    "table_name": "questionnaire_versions",
+    "description": "Represents a version snapshot of a questionnaire in the database.",
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier for the version.",
+        "required": true,
+        "key_type": {
+          "type": "primary_key",
+          "behaviors": ["auto_increment"]
+        }
+      },
+      {
+        "name": "questionnaire_id",
+        "type": "int",
+        "description": "Foreign key reference to the parent questionnaire.",
+        "required": true,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "questionnaires",
+          "column": "id",
+          "behaviors": ["ondelete_cascade"]
+        }
+      },
+      {
+        "name": "questionnaire",
+        "type": "object",
+        "description": "Relationship to the parent Questionnaire entity.",
+        "required": false,
+        "linked_property": {
+          "table": "Questionnaire",
+          "property": "versions"
+        }
+      },
+      {
+        "name": "version_number",
+        "type": "int",
+        "description": "Sequential version number for the questionnaire.",
+        "required": true
+      },
+      {
+        "name": "snapshot",
+        "type": "text",
+        "description": "JSON-serialized snapshot of the questionnaire state at this version.",
+        "required": true
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "description": "Timestamp when this version was created (UTC).",
+        "required": true,
+        "default_value": "lambda: datetime.now(UTC)"
+      },
+      {
+        "name": "created_by",
+        "type": "str",
+        "description": "Identifier of the user who created this version.",
+        "required": false
+      },
+      {
+        "name": "change_summary",
+        "type": "text",
+        "description": "Human-readable summary of changes in this version.",
+        "required": false
+      }
+    ],
+    "unique_constraints": [["questionnaire_id", "version_number"]]
+  },
+  {
+    "name": "TechnologyVersions",
+    "table_name": "technology_versions",
+    "description": "Represents a version snapshot of a technology in the database.",
+    "properties": [
+      {
+        "name": "id",
+        "type": "int",
+        "description": "Primary key, auto-incrementing identifier for the version.",
+        "required": true,
+        "key_type": {
+          "type": "primary_key",
+          "behaviors": ["auto_increment"]
+        }
+      },
+      {
+        "name": "technology_id",
+        "type": "int",
+        "description": "Foreign key reference to the parent technology.",
+        "required": true,
+        "key_type": {
+          "type": "foreign_key",
+          "table": "technologies",
+          "column": "id",
+          "behaviors": ["ondelete_cascade"]
+        }
+      },
+      {
+        "name": "technology",
+        "type": "object",
+        "description": "Relationship to the parent Technology entity.",
+        "required": false,
+        "linked_property": {
+          "table": "Technology",
+          "property": "versions"
+        }
+      },
+      {
+        "name": "version_number",
+        "type": "int",
+        "description": "Sequential version number for the technology.",
+        "required": true
+      },
+      {
+        "name": "snapshot",
+        "type": "text",
+        "description": "JSON-serialized snapshot of the technology state at this version.",
+        "required": true
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "description": "Timestamp when this version was created (UTC).",
+        "required": true,
+        "default_value": "lambda: datetime.now(UTC)"
+      },
+      {
+        "name": "created_by",
+        "type": "str",
+        "description": "Identifier of the user who created this version.",
+        "required": false
+      },
+      {
+        "name": "change_summary",
+        "type": "text",
+        "description": "Human-readable summary of changes in this version.",
+        "required": false
+      }
+    ],
+    "unique_constraints": [["technology_id", "version_number"]]
+  }
+]
