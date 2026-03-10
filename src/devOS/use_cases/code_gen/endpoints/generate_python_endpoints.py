@@ -4,6 +4,48 @@ import devOS.domain.entities as entities
 import devOS.use_cases.utils.codegen_helpers as codegen_utils
 
 
+def generate_app_definition_code(project_name: str) -> str:
+    return f"""
+from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from typing import Generator
+
+DATABASE_URL = "sqlite:///./{project_name}_db.sqlite3"
+APP_NAME = "{project_name.replace('_', ' ').title()}"
+APP_VERSION = "1.0"
+
+app = FastAPI(title=APP_NAME, version=APP_VERSION)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/", tags=["root"])
+async def read_root():
+    return RedirectResponse(url="/docs")
+
+
+# Database engine and session factory
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def get_db() -> Generator[Session, None, None]:
+    \"\"\"Dependency that yields a database session and ensures it's closed after use.\"\"\"
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+"""
+
 def generate_crud_endpoints_for_dao(
     dao_spec: entities.DAOSchemaSpec, version: str = "v1"
 ) -> str:

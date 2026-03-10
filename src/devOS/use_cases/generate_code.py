@@ -6,6 +6,7 @@ import devOS.use_cases.code_gen.tests.generate_python_tests as py_tests_gen
 from devOS.use_cases.utils.file_io import File
 from devOS.domain import entities
 import os
+from git import Repo
 
 
 class GenerateCodeUseCase:
@@ -48,7 +49,28 @@ class GenerateCodeUseCase:
 
         # Flatten the list of lists for services_output_path and tests_output_path_services
         self.services_output_path = self.__search_for_services()
-        self.project_name = "project_name"
+        self.project_name = self._extract_git_repo_name()
+
+    def _extract_git_repo_name(self) -> str:
+        """
+        Extract the project name from the git repository name.
+
+        Returns
+        -------
+        str
+            The git repository name, or fallback to directory name.
+        """
+        try:
+            repo = Repo(".", search_parent_directories=True)
+            # Get the repo name from the repository URL or directory
+            repo_name = repo.remote().url.split("/")[-1].replace(".git", "")
+            return repo_name if repo_name else os.path.basename(os.getcwd())
+        except Exception:
+            # Fallback to directory name if git repo not found
+            try:
+                return os.path.basename(os.getcwd())
+            except Exception:
+                return "project_name"
 
     def __search_for_services(self) -> list[str]:
         # walk through the file system start from the src directory to find
@@ -249,6 +271,17 @@ class GenerateCodeUseCase:
                     py_crud_dto_output,
                 )
 
+                # generate the python app definition file
+                app_definition_code = py_endpoint_gen.generate_app_definition_code(
+                    self.project_name
+                )
+                print("Python App Definition code generated:\n")
+                print(app_definition_code)
+                self.__write_code(
+                    self.project_structure.project_root.app_definition_directory,
+                    app_definition_code,
+                )
+
             elif dto_output_configs.language == "typescript":
                 ts_dto_output = "import { z } from 'zod';\n\n"
 
@@ -367,7 +400,7 @@ class GenerateCodeUseCase:
                 result or "",
             )
 
-    def execute(self, project_name: str) -> None:
+    def execute(self, project_name: str | None = None) -> None:
         """Run all generation steps in sequence.
         1. Generate DAOs
         2. Generate DTOs
@@ -384,13 +417,15 @@ class GenerateCodeUseCase:
         -------
         dev build my_project
         """
-        self.project_name = project_name
+        if project_name is not None:
+            self.project_name = project_name
+
         # execute all the code generation steps one after another
-        self.generate_dao(project_name)
-        self.generate_dto(project_name)
-        self.generate_endpoints(project_name)
-        self.generate_tests_for_endpoints(project_name)
-        self.generate_tests_for_services(project_name)
+        self.generate_dao(self.project_name)
+        self.generate_dto(self.project_name)
+        self.generate_endpoints(self.project_name)
+        self.generate_tests_for_endpoints(self.project_name)
+        self.generate_tests_for_services(self.project_name)
 
 
 if __name__ == "__main__":
