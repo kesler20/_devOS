@@ -27,7 +27,7 @@ Point devOS at your project's directories and language once, then everything els
 (code gen, snippets, agents) reads from that config.
 
 ```bash
-devos config
+dev config
 ```
 
 This writes `specs/project_config.json` with paths for DAOs, DTOs, routes, and tests.
@@ -39,11 +39,13 @@ This writes `specs/project_config.json` with paths for DAOs, DTOs, routes, and t
 Generate DAOs, DTOs, CRUD routes, and tests from your JSON specification:
 
 ```bash
-devos build project_name   # full build — all artefacts for the named project
-devos build dao            # DAOs only
-devos build dto            # DTOs only
-devos build routes         # API routes only
-devos build tests          # test scaffolding only
+dev build project_name               # full build — all artefacts for the named project
+dev build dao project_name           # DAOs only
+dev build dto project_name           # DTOs only
+dev build api project_name           # API routes only
+dev build tests api project_name     # API test scaffolding only
+dev build tests services project_name # service test scaffolding only
+dev build context .py,.md .          # aggregate project context file
 ```
 
 ---
@@ -53,10 +55,11 @@ devos build tests          # test scaffolding only
 Open the visual entity designer (drawORM) in your browser:
 
 ```bash
-devos ui path,to,devos
+dev ui path,to,devOS
 ```
 
-> If this doesn't work, make sure you have Node.js installed and run `npm install` in the `devOS/frontend` directory.
+> If this doesn't work, make sure you have Node.js installed and run `npm install` in
+> the `devOS/frontend` directory.
 
 Design entities, set field types and relationships, then export directly to
 `specs/dao_spec.json`.
@@ -73,10 +76,11 @@ vault/
   dotenv_example_project_name  # template for new developers
 ```
 
-Load credentials into the current shell:
+Copy credentials from vault back into the current project (`.env` and
+`.env.example`):
 
 ```bash
-devos credentials load project_name
+dev get credentials project_name
 ```
 
 ---
@@ -90,24 +94,24 @@ vault/
   global_secret_{secret_key}
 ```
 
-Access them programmatically through the credentials use case, or load them the same
-way as project credentials:
+Set and retrieve global secrets:
 
 ```bash
-devos credentials load --global secret_key
+dev set secrets secret_key secret_value
+dev get secrets secret_key
 ```
 
 ---
 
 ### Managing Snippets
 
-Snippets are reusable code stored as **git branches**. Pull any snippet directly into
-your project:
+Snippets are reusable code stored in a **git-backed snippets repository**. Pull/push
+snippets with explicit `from`/`to` paths:
 
 ```bash
-devos snippets list                              # browse available snippets
-devos snippets pull python/sqlalchemy_adapter    # copy snippet into project
-devos snippets push infrastructure/adapters.py --branch python/database-adapters
+dev get snippets
+dev get snippet from python,sqlalchemy_adapter.py to path,to,local,sqlalchemy_adapter.py
+dev set snippet from path,to,local,adapters.py to python,database-adapters,adapters.py
 ```
 
 Categories include Python adapters, TypeScript components, GitHub Actions workflows,
@@ -121,9 +125,9 @@ Agents create isolated **git worktrees**, implement a task autonomously, then wa
 for your review:
 
 ```bash
-devos agent create "Implement user authentication endpoint"
-devos agent review task-user-auth   # inspect the worktree branch
-git merge worktrees/task-user-auth/feature-branch
+dev agents run now
+dev agents watch my-repo-tag every 1 hour
+dev agents merge agent/task-user-auth
 ```
 
 Agents read `AGENTS.md` for architectural guidance and use local LLMs — no cloud
@@ -251,7 +255,7 @@ cd devOS
 2. **Run the setup command:**
 
 ```bash
-devos setup
+dev setup
 ```
 
 This will:
@@ -277,7 +281,7 @@ Secrets are not project-specific and can be stored at the vault root level.
 4. **Verify installation:**
 
 ```bash
-devos --version
+dev version
 ```
 
 ---
@@ -473,11 +477,12 @@ devOS enforces Clean Architecture principles through code generation:
 3. **Run code generator:**
 
 ```bash
-devos build              # Generate all artifacts
-devos build dao          # Generate DAOs only
-devos build dto          # Generate DTOs only
-devos build routes       # Generate API routes only
-devos build tests        # Generate test scaffolding only
+dev build project_name               # Generate all artifacts
+dev build dao project_name           # Generate DAOs only
+dev build dto project_name           # Generate DTOs only
+dev build api project_name           # Generate API routes only
+dev build tests api project_name     # Generate API test scaffolding only
+dev build tests services project_name # Generate service test scaffolding only
 ```
 
 4. **LLM Integration** — When programming language is not specified, devOS invokes an
@@ -624,7 +629,7 @@ domain/ → use_cases/ → infrastructure/
 1. **Launch the ORM builder:**
 
 ```bash
-devos ui
+dev ui path,to,devOS
 ```
 
 2. **Design your entities:**
@@ -634,14 +639,12 @@ devos ui
 
 3. **Export specification:**
 
-```bash
-devos export --output specs/dao_spec.json
-```
+Use the drawORM save/export action in the UI. It writes to `specs/dao_spec.json`.
 
 4. **Generate code:**
 
 ```bash
-devos build
+dev build project_name
 ```
 
 5. **Implement use cases:**
@@ -657,10 +660,10 @@ pytest tests/
 
 ### Working with Local Agents
 
-1. **Create a task:**
+1. **Run agents for current repo tasks:**
 
 ```bash
-devos agent create "Implement user authentication endpoint"
+dev agents run now
 ```
 
 2. **Agent creates a worktree:**
@@ -681,8 +684,7 @@ project/
 4. **Review and merge:**
 
 ```bash
-devos agent review task-user-auth
-git merge worktrees/task-user-auth/feature-branch
+dev agents merge agent/task-user-auth
 ```
 
 ### Managing Snippets
@@ -690,25 +692,25 @@ git merge worktrees/task-user-auth/feature-branch
 1. **List available snippets:**
 
 ```bash
-devos snippets list
+dev get snippets
 ```
 
 2. **Pull snippet into project:**
 
 ```bash
-devos snippets pull python/sqlalchemy_adapter
+dev get snippet from python,sqlalchemy_adapter.py to path,to,local,sqlalchemy_adapter.py
 ```
 
 3. **Update snippet from project:**
 
 ```bash
-devos snippets push infrastructure/adapters.py --branch python/database-adapters
+dev set snippet from path,to,local,adapters.py to python,database-adapters,adapters.py
 ```
 
 4. **Create custom snippet:**
 
 ```bash
-devos snippets create utils/validators.py --branch python/validation
+dev delete snippet python,database-adapters,adapters.py
 ```
 
 ### Configuration
