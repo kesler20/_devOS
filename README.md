@@ -13,8 +13,144 @@ gap between prototype and production code.
 
 ---
 
+## TL;DR — devOS in 5 Minutes
+
+### Assumptions
+
+- You are inside an active **git repository**
+- You have **Node.js** and **Codex CLI** installed
+- Your Python virtual environment is **activated**
+
+### Configure a Project
+
+Point devOS at your project's directories and language once, then everything else
+(code gen, snippets, agents) reads from that config.
+
+```bash
+devos config
+```
+
+This writes `specs/project_config.json` with paths for DAOs, DTOs, routes, and tests.
+
+---
+
+### Build Project Artefacts
+
+Generate DAOs, DTOs, CRUD routes, and tests from your JSON specification:
+
+```bash
+devos build project_name   # full build — all artefacts for the named project
+devos build dao            # DAOs only
+devos build dto            # DTOs only
+devos build routes         # API routes only
+devos build tests          # test scaffolding only
+```
+
+---
+
+### Launch the ORM Builder UI
+
+Open the visual entity designer (drawORM) in your browser:
+
+```bash
+devos ui path,to,devos
+```
+
+> If this doesn't work, make sure you have Node.js installed and run `npm install` in the `devOS/frontend` directory.
+
+Design entities, set field types and relationships, then export directly to
+`specs/dao_spec.json`.
+
+---
+
+### Managing Credentials
+
+Store per-project environment variables in the **vault** (outside of git):
+
+```
+vault/
+  dotenv_project_name          # project-specific .env values
+  dotenv_example_project_name  # template for new developers
+```
+
+Load credentials into the current shell:
+
+```bash
+devos credentials load project_name
+```
+
+---
+
+### Managing Secrets
+
+Global secrets (not tied to any single project) live at the vault root:
+
+```
+vault/
+  global_secret_{secret_key}
+```
+
+Access them programmatically through the credentials use case, or load them the same
+way as project credentials:
+
+```bash
+devos credentials load --global secret_key
+```
+
+---
+
+### Managing Snippets
+
+Snippets are reusable code stored as **git branches**. Pull any snippet directly into
+your project:
+
+```bash
+devos snippets list                              # browse available snippets
+devos snippets pull python/sqlalchemy_adapter    # copy snippet into project
+devos snippets push infrastructure/adapters.py --branch python/database-adapters
+```
+
+Categories include Python adapters, TypeScript components, GitHub Actions workflows,
+Dockerfiles, prompts, and Copilot instruction files.
+
+---
+
+### Using Agents
+
+Agents create isolated **git worktrees**, implement a task autonomously, then wait
+for your review:
+
+```bash
+devos agent create "Implement user authentication endpoint"
+devos agent review task-user-auth   # inspect the worktree branch
+git merge worktrees/task-user-auth/feature-branch
+```
+
+Agents read `AGENTS.md` for architectural guidance and use local LLMs — no cloud
+dependencies required.
+
+### Keeping devOS Up to Date
+
+Add [devOS_profile.ps1](devOS_profile.ps1) to your PowerShell profile. It exposes a
+`dev-update` alias that pulls the latest changes, reinstalls the package into the
+currently activated environment, and returns you to your project directory:
+
+```powershell
+# From your project directory (devOS lives one level up by default)
+dev-update
+
+# Specify a different devOS location or return directory
+dev-update -DevOSPath "C:/path/to/devOS" -TargetDir "my-project"
+```
+
+> **Activate your environment before running `dev-update`** — the script installs
+> directly into whatever `pip` is on your `PATH`.
+
+---
+
 ## Table of Contents
 
+- [TL;DR — devOS in 5 Minutes](#tldr--devos-in-5-minutes)
 - [Philosophy](#philosophy)
 - [Core Components](#core-components)
 - [Installation](#installation)

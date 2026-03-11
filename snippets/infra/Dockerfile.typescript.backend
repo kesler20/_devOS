@@ -1,0 +1,26 @@
+# Use the official lightweight Node.js 18 image.
+FROM node:18-alpine
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Create and change to the app directory.
+WORKDIR /usr/src/app
+
+# Copy the local code to the container image
+COPY . /usr/src/app/
+
+# Move into the backend directory
+WORKDIR /usr/src/app/backend
+
+# Install dependencies.
+RUN pnpm install 
+
+# Move back into the backend directory
+WORKDIR /usr/src/app/backend
+
+# Expose the desired port (e.g., 3000)
+EXPOSE 3000
+
+# Serve the built application with "serve" on port 3000.
+CMD ["pnpm", "run", "server"]

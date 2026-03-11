@@ -469,7 +469,7 @@ class ConfigProjectUseCase(use_cases.OSInterface):
         """Build project configuration.
 
         If a configuration file exists, loads it. Otherwise, returns a default
-        configuration without prompting the user.
+        configuration in memory without writing files.
 
         Parameters
         ----------
@@ -483,8 +483,8 @@ class ConfigProjectUseCase(use_cases.OSInterface):
 
         Side Effects
         ------------
-        Creates or updates the `specs/project_config.json` file
-        with the user's input (only during setup wizard).
+        Creates or updates the `specs/project_config.json` file only when
+        configuration is explicitly updated through the setup wizard.
         """
         if project_name is None:
             project_name = self.project_name
@@ -492,9 +492,9 @@ class ConfigProjectUseCase(use_cases.OSInterface):
             File("specs", "project_config.json").exists() is False
             and not self.update_existing_config
         ):
-            # Generate and save default config
+            # Return a default config in memory only.
+            # Persisting to disk is done only through `dev config`.
             cfg = self._get_default_config(project_name)
-            self.write_project_config(cfg)
             return cfg
         elif self.update_existing_config:
             # Run wizard only when explicitly requested
