@@ -36,5 +36,16 @@
       "sqlalchemy_db_adapter.py"
     ],
     "use_cases_output_directory": ["src", "devOS", "use_cases", "crud_use_cases.py"]
+    ,
+    "contract_sync_output_config": [
+      {
+        "source_language": "python",
+        "output_directory": ["src", "devOS", "schema", "typescript"]
+      },
+      {
+        "source_language": "typescript",
+        "output_directory": ["src", "devOS", "schema", "python"]
+      }
+    ]
   }
 }

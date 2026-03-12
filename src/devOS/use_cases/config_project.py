@@ -262,6 +262,31 @@ class ConfigProjectUseCase(use_cases.OSInterface):
             ),
         )
 
+        contract_sync_python_output_dir = self.__prompt_optional(
+            "Enter the contract sync output directory for Python source files (writes TypeScript)",
+            default=get_default(
+                [
+                    "project_root",
+                    "contract_sync_output_config",
+                    0,
+                    "output_directory",
+                ],
+                f"src,{project_name},schema,typescript",
+            ),
+        )
+        contract_sync_typescript_output_dir = self.__prompt_optional(
+            "Enter the contract sync output directory for TypeScript source files (writes Python)",
+            default=get_default(
+                [
+                    "project_root",
+                    "contract_sync_output_config",
+                    1,
+                    "output_directory",
+                ],
+                f"src,{project_name},schema,python",
+            ),
+        )
+
         # Build the project configuration
         project_config = entities.ProjectConfigSchema(
             home_root=entities.HomeRootConfig(
@@ -320,6 +345,32 @@ class ConfigProjectUseCase(use_cases.OSInterface):
                 ),
                 app_definition_directory=(
                     app_definition_dir.split(",") if app_definition_dir else []
+                ),
+                contract_sync_output_config=(
+                    (
+                        [
+                            entities.ContractSyncOutputConfig(
+                                source_language="python",
+                                output_directory=contract_sync_python_output_dir.split(
+                                    ","
+                                ),
+                            )
+                        ]
+                        if contract_sync_python_output_dir
+                        else []
+                    )
+                    + (
+                        [
+                            entities.ContractSyncOutputConfig(
+                                source_language="typescript",
+                                output_directory=contract_sync_typescript_output_dir.split(
+                                    ","
+                                ),
+                            )
+                        ]
+                        if contract_sync_typescript_output_dir
+                        else []
+                    )
                 ),
             ),
         )
@@ -459,6 +510,16 @@ class ConfigProjectUseCase(use_cases.OSInterface):
                     project_name,
                     "infrastructure",
                     "app.py",
+                ],
+                contract_sync_output_config=[
+                    entities.ContractSyncOutputConfig(
+                        source_language="python",
+                        output_directory=["src", project_name, "schema", "typescript"],
+                    ),
+                    entities.ContractSyncOutputConfig(
+                        source_language="typescript",
+                        output_directory=["src", project_name, "schema", "python"],
+                    ),
                 ],
             ),
         )

@@ -80,6 +80,7 @@ mapper = {
         "merge": {"leaf node": run_agent.merge_worktree_to_main},
         "add": {"docs": {"leaf node": docstrings_formatter.execute}},
     },
+    "sync": {"leaf node": code_generator.sync_contracts},
     "config": {"leaf node": config_project.set_update_existing_config().execute},
     "setup": {"leaf node": config_project.initial_setup},
 }

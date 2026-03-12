@@ -30,7 +30,8 @@ Point devOS at your project's directories and language once, then everything els
 dev config
 ```
 
-This writes `specs/project_config.json` with paths for DAOs, DTOs, routes, and tests.
+This writes `specs/project_config.json` with paths for DAOs, DTOs, routes, tests,
+and contract synchronization outputs.
 
 ---
 
@@ -46,6 +47,7 @@ dev build api project_name           # API routes only
 dev build tests api project_name     # API test scaffolding only
 dev build tests services project_name # service test scaffolding only
 dev build context .py,.md .          # aggregate project context file
+dev sync                              # sync classes marked with @contract across Python/TypeScript
 ```
 
 ---
@@ -483,6 +485,7 @@ dev build dto project_name           # Generate DTOs only
 dev build api project_name           # Generate API routes only
 dev build tests api project_name     # Generate API test scaffolding only
 dev build tests services project_name # Generate service test scaffolding only
+dev sync                              # Translate all classes in @contract files
 ```
 
 4. **LLM Integration** — When programming language is not specified, devOS invokes an
@@ -724,15 +727,29 @@ Edit `specs/project_config.json` to customize:
     "snippets_repo": "https://github.com/your-org/devos-snippets"
   },
   "project_root": {
-    "dao_dir": ["src", "domain"],
-    "dao_filename": "entities.py",
-    "dto_dir": ["src", "use_cases"],
-    "routes_dir": ["src", "infrastructure"],
-    "tests_dir": ["tests"],
-    "programming_language": "python"
+    "dao_output_config": [
+      { "directory": ["src", "my_app", "domain", "dao.py"], "language": "python" }
+    ],
+    "dto_output_config": [
+      { "directory": ["src", "my_app", "use_cases", "dto.py"], "language": "python" }
+    ],
+    "api_output_config": [
+      { "directory": ["src", "my_app", "infrastructure", "routes.py"], "language": "python" }
+    ],
+    "test_api_output_config": [
+      { "directory": ["tests", "test_routes.py"], "language": "python" }
+    ],
+    "test_services_output_directory": ["tests"],
+    "contract_sync_output_config": [
+      { "source_language": "python", "output_directory": ["src", "typescript_code", "schema"] },
+      { "source_language": "typescript", "output_directory": ["src", "python_code", "schema"] }
+    ]
   }
 }
 ```
+
+Any class inside files containing `@contract` is translated to the opposite language using the
+same filename stem. Example: `types.ts` -> `types.py` in the configured destination.
 
 ---
 

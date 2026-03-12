@@ -3,6 +3,7 @@ import devOS.use_cases.code_gen.dtos.generate_python_dtos as py_dto_gen
 import devOS.use_cases.code_gen.dtos.generate_typescript_dtos as ts_dto_gen
 import devOS.use_cases.code_gen.endpoints.generate_python_endpoints as py_endpoint_gen
 import devOS.use_cases.code_gen.tests.generate_python_tests as py_tests_gen
+import devOS.use_cases.code_gen.contracts.sync_contracts as contract_sync_gen
 from devOS.use_cases.utils.file_io import File
 from devOS.domain import entities
 import os
@@ -399,6 +400,16 @@ class GenerateCodeUseCase:
                 service_tests_output_path + [f"test_{os.path.basename(service_path)}"],
                 result or "",
             )
+
+    def sync_contracts(self, project_name: str | None = None) -> None:
+        """Synchronize files marked with `@contract` between Python and TypeScript."""
+        if project_name is not None:
+            self.project_name = project_name
+
+        sync_use_case = contract_sync_gen.SyncContractsUseCase(
+            project_structure=self.project_structure
+        )
+        sync_use_case.execute(self.project_name)
 
     def execute(self, project_name: str | None = None) -> None:
         """Run all generation steps in sequence.

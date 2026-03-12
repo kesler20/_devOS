@@ -536,6 +536,23 @@ class CodeGenOutputConfig(pydantic.BaseModel):
     language: SupportedLanguagesValues
 
 
+class ContractSyncOutputConfig(pydantic.BaseModel):
+    """
+    Specify output settings for `@contract` synchronization.
+
+    Parameters
+    ----------
+    source_language : SupportedLanguagesValues
+        Source language to scan for files marked with ``@contract``.
+    output_directory : list[str]
+        Destination directory (relative to project root) where translated
+        contracts are written using the same base filename.
+    """
+
+    source_language: SupportedLanguagesValues
+    output_directory: list[str]
+
+
 class ProjectSpecificConfig(pydantic.BaseModel):
     """
     Project-specific configuration for code generation outputs.
@@ -558,6 +575,9 @@ class ProjectSpecificConfig(pydantic.BaseModel):
         Output directory for use case code, relative to the project root, as a list of path components.
     app_definition_directory : list[str]
         Output directory for fastapi app definition code and `get_db`, relative to the project root, as a list of path components.
+    contract_sync_output_config : list[ContractSyncOutputConfig]
+        Configuration for `@contract` file synchronization between Python and
+        TypeScript.
     """
 
     dao_output_config: list[CodeGenOutputConfig]
@@ -568,6 +588,7 @@ class ProjectSpecificConfig(pydantic.BaseModel):
     adapters_output_directory: list[str] = []
     use_cases_output_directory: list[str] = []
     app_definition_directory: list[str] = []
+    contract_sync_output_config: list[ContractSyncOutputConfig] = []
 
 
 class HomeRootConfig(pydantic.BaseModel):
