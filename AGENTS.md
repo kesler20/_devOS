@@ -1,3 +1,8 @@
+# Design Document Authority and Implementation Guidelines
+Read the design document and treat it as authoritative for repo-specific constraints, endpoint usage and API shape, UI / software / system design examples, and feature-specific implementation boundaries. If there is no design document or it does not cover a specific aspect of the implementation fallback to the guidelines in this document.
+
+Prefer minimal, localised diffs that are easy to review. Reuse existing components and state patterns as much as possible before creating new ones.
+
 # Overall Programming
 
 ## 1. Overview

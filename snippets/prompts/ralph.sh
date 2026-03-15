@@ -28,8 +28,9 @@ This should be the one you decide has the highest priority, not necessarily the 
 
 3. After implementation:
    - Verify that the changes follow AGENTS.md and Design Document.md style and constraints.
+   - If they do not, refactor until they do.
 
-4. Check that the types check via pnpm typecheck and that the tests pass via pnpm test.
+4. Check that the types check via pnpm typecheck or mypy src and that the tests pass via pnpm test or pytest tests or the appropriate commands for the project.
 
 5. Update the PRD with the work that was done.
 
