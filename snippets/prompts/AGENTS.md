@@ -1,3 +1,8 @@
+# Design Document Authority and Implementation Guidelines
+Read the design document and treat it as authoritative for repo-specific constraints, endpoint usage and API shape, UI / software / system design examples, and feature-specific implementation boundaries. If there is no design document or it does not cover a specific aspect of the implementation fallback to the guidelines in this document.
+
+Prefer minimal, localised diffs that are easy to review. Reuse existing components and state patterns as much as possible before creating new ones.
+
 # Frontend
 
 You are a code assistant working in a React + TypeScript codebase.
@@ -41,6 +46,7 @@ Overall keep React code boring, explicit, and easy to scan.
 
 Rule: **one reducer or one state machine per page** (not shared across multiple pages unless truly generic).
 
+When modifying UI, prefer extending existing shared or page-local components before creating new component families.
 ---
 
 ## 2. Naming Conventions
@@ -64,6 +70,10 @@ Use headings like:
 * `// ------------------------------------------------------ Collection`
 * `// ------------------------------------------------------ Item`
 * `// ------------------------------------------------------ Option`
+
+### 2.3 Component naming
+
+Do not prefix presentational components with `DUMB` or similar names. Name components by their domain role, such as `ItemRow`, `CollectionHeader`, or `QuestionnaireCard`.
 
 ---
 
@@ -590,6 +600,7 @@ When using `xstate`:
 * Multiple sources of truth for the same data
 * Large `useEffect` blocks that should be a handler or a small helper
 * Multiple reducers/machines fighting over the same page state
+* Creating a new component family or state pattern when an existing shared or page-local one can be extended
 
 # Backend
 
@@ -778,6 +789,7 @@ client in a separate file in the infrastructure folder, i.e. `StripeClient` in
 separate file in the infrastructure folder, i.e.
 `StripePaymentProcessorAdapter(ports.PaymentProcessor)` in
 `infrastructure/adapters.py`.
+Prefer extending existing infrastructure, adapters, clients, DTOs, and use cases before introducing new ones.
 
 ### 1.6. Implementing Routers
 
@@ -785,10 +797,11 @@ always add the version to the router path and the resource name in plural i.e.
 `/v1/users/`, `/v1/orders/`, etc.
 
 - the router should only implement the HTTP methods and call the use cases, it should
-  not implement any business logic
+  not implement any business logic; keep handlers/routes thin and place business logic in the existing use-case layer
 - the router should use the data transfer objects (DTOs) defined in the
   use_cases/schema.py
 - the router should use the adapters defined in the infrastructure/adapters.py
+- prefer extending existing routers, DTOs, adapters, and use cases before introducing a new endpoint family
 
 # Overall Programming
 
