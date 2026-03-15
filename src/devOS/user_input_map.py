@@ -3,7 +3,6 @@ from devOS.use_cases.manage_git_repo import ManageGitRepositoryUseCase
 from devOS.use_cases.manage_snippets import ManageSnippetsUseCase
 from devOS.use_cases.generate_code import GenerateCodeUseCase
 from devOS.use_cases.manage_credentials import ManageCredentialsUseCase
-from devOS.use_cases.run_agents import RunAgentsUseCase
 import os
 from devOS.use_cases import use_cases
 from devOS.use_cases.config_project import ConfigProjectUseCase
@@ -22,9 +21,7 @@ snippet_manager = ManageSnippetsUseCase(*project_structure.home_root.snippets)
 credentials_manager = ManageCredentialsUseCase(
     project_structure.home_root.vault, os.getcwd().split(os.sep)
 )
-run_agent = RunAgentsUseCase()
 context_builder = use_cases.AggregateContextUseCase()
-docstrings_formatter = use_cases.GenerateDocstringsUseCase()
 
 
 # ============================== #
@@ -70,15 +67,6 @@ mapper = {
     },
     "ui": {
         "leaf node": run_server.main,
-    },
-    "agents": {
-        "run": {
-            "now": {"leaf node": run_agent.execute},
-            "every": {"leaf node": run_agent.run_every},
-        },
-        "watch": {"leaf node": run_agent.watch},
-        "merge": {"leaf node": run_agent.merge_worktree_to_main},
-        "add": {"docs": {"leaf node": docstrings_formatter.execute}},
     },
     "sync": {"leaf node": code_generator.sync_contracts},
     "config": {"leaf node": config_project.set_update_existing_config().execute},

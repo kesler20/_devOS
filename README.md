@@ -6,8 +6,8 @@
 </div>
 
 **devOS** is a development acceleration toolkit that combines visual design tools,
-code generation, local AI agents, and version-controlled snippets to eliminate the
-gap between prototype and production code.
+code generation, Ralph-first automation, and version-controlled snippets to eliminate
+the gap between prototype and production code.
 
 ![drawUML](assets/drawUML.png)
 
@@ -18,20 +18,20 @@ gap between prototype and production code.
 ### Assumptions
 
 - You are inside an active **git repository**
-- You have **Node.js** and **Codex CLI** installed
+- You have **Node.js** installed
 - Your Python virtual environment is **activated**
 
 ### Configure a Project
 
 Point devOS at your project's directories and language once, then everything else
-(code gen, snippets, agents) reads from that config.
+(code gen, snippets, and automation utilities) reads from that config.
 
 ```bash
 dev config
 ```
 
-This writes `specs/project_config.json` with paths for DAOs, DTOs, routes, tests,
-and contract synchronization outputs.
+This writes `specs/project_config.json` with paths for DAOs, DTOs, routes, tests, and
+contract synchronization outputs.
 
 ---
 
@@ -121,19 +121,10 @@ Dockerfiles, prompts, and Copilot instruction files.
 
 ---
 
-### Using Agents
+### Ralph-First Workflow
 
-Agents create isolated **git worktrees**, implement a task autonomously, then wait
-for your review:
-
-```bash
-dev agents run now
-dev agents watch my-repo-tag every 1 hour
-dev agents merge agent/task-user-auth
-```
-
-Agents read `AGENTS.md` for architectural guidance and use local LLMs — no cloud
-dependencies required.
+devOS now prioritizes a **Ralph-first** local workflow. Keep your `AGENTS.md` and
+`ralph.sh` files synchronized with prompt snippets using `dev-sync`.
 
 ### Keeping devOS Up to Date
 
@@ -197,8 +188,8 @@ dev-sync write_agents
 dev-sync write_ralph
 ```
 
-This gives you a quick read/write partition so you can edit locally, then sync
-back to devOS snippet storage immediately.
+This gives you a quick read/write partition so you can edit locally, then sync back
+to devOS snippet storage immediately.
 
 ---
 
@@ -229,8 +220,8 @@ and high-quality clean code. devOS is built on these principles:
    language and avoid AST parsing errors
 4. **Version-controlled development assets** — Snippets, prompts, and configs live in
    git branches, not scattered files
-5. **Local-first agent workflows** — Proprietary projects need local agents working
-   on git worktrees, not cloud services
+5. **Ralph-first local workflows** — Keep prompt and instruction files synced and
+   runnable locally
 
 devOS is **not distributed via PyPI**. It's meant to be **cloned** into each project
 where you can:
@@ -238,7 +229,7 @@ where you can:
 - Customize default configs and settings for your team
 - Maintain your own snippets as git branches
 - Use it as a secrets vault
-- Run local agents without cloud dependencies
+- Run local Ralph workflows without cloud dependencies
 
 ---
 
@@ -272,14 +263,13 @@ A domain-specific visual language on top of JSON for defining:
 - Machine-readable for LLM code generation
 - Type-safe and version-controllable
 
-### Local AI Agents
+### Ralph Workflow Utilities
 
-devOS spins up agents locally that:
+devOS provides utilities for keeping prompt and automation assets synced locally:
 
-- Create git worktrees for isolated task execution
-- Work on features/fixes without touching your main branch
-- Operate entirely offline (crucial for proprietary projects)
-- Leverage local LLM code generation when programming language isn't specified
+- Sync `AGENTS.md` and `ralph.sh` with snippet storage
+- Reuse version-controlled prompts across projects
+- Keep workflows local-first for proprietary codebases
 
 ---
 
@@ -290,8 +280,7 @@ devOS spins up agents locally that:
 - **Node.js** v18 or above
 - **Python** 3.10 or above
 - An active **git repository** (devOS extracts repo name, tags, etc.)
-- (Optional) **Codex account** and **TickTick developer account** for AI agent
-  integration
+- (Optional) Tooling required by your local `ralph.sh` workflow
 
 ### Setup
 
@@ -311,7 +300,6 @@ dev setup
 This will:
 
 - Install the ORM builder UI (React frontend)
-- Install the Codex CLI for AI agents
 - Configure environment variables
 - Set up code snippets as git branches
 
@@ -418,10 +406,10 @@ graph TB
         I[LLM Codegen]
     end
 
-    subgraph "Agent Orchestration"
-        J[Local Agents]
-        K[Git Worktrees]
-        L[Task Executor]
+    subgraph "Local Workflow"
+      J[Ralph Scripts]
+      K[Prompt Snippets]
+      L[Local Task Execution]
     end
 
     subgraph "Developer Assets"
@@ -461,18 +449,17 @@ sequenceDiagram
     participant UI as drawORM/drawUML
     participant Spec as JSON Specification
     participant Gen as Code Generator
-    participant Agent as Local Agent
-    participant WT as Git Worktree
+    participant Ralph as Ralph Workflow
+    participant Local as Local Task Runtime
 
     Dev->>UI: Design entities & endpoints
     UI->>Spec: Generate JSON specification
     Spec->>Gen: Parse and validate
-    Gen->>Agent: Create generation task
-    Agent->>WT: Create isolated worktree
-    WT->>Agent: Execute code generation
-    Agent->>Gen: Apply templates & snippets
+    Gen->>Ralph: Create local generation task
+    Ralph->>Local: Execute code generation
+    Local->>Ralph: Apply templates & snippets
     Gen->>Dev: Produce DAOs, DTOs, routes, tests
-    Dev->>WT: Review & merge changes
+    Dev->>Local: Review generated changes
 ```
 
 ### Clean Architecture Layers
@@ -537,7 +524,7 @@ dev sync                              # Translate all classes in @contract files
 ```
 
 4. **LLM Integration** — When programming language is not specified, devOS invokes an
-   LLM codegen agent using `AGENTS.md` for architectural guidance
+   LLM codegen workflow using `AGENTS.md` for architectural guidance
 
 ### Test Generation
 
@@ -709,33 +696,25 @@ DAOs.
 pytest tests/
 ```
 
-### Working with Local Agents
+### Working with Ralph Locally
 
-1. **Run agents for current repo tasks:**
+1. **Pull prompt and instruction updates:**
 
-```bash
-dev agents run now
+```powershell
+dev-sync read_agents
+dev-sync read_ralph
 ```
 
-2. **Agent creates a worktree:**
+2. **Run your local Ralph workflow:**
 
-```
-project/
-├── .git/
-└── worktrees/
-    └── task-user-auth/     # Isolated environment
-```
+- Execute `ralph.sh` with your preferred local runtime setup
+- Keep generated or updated instructions aligned with project conventions
 
-3. **Agent works autonomously:**
-   - Reads specifications
-   - Generates code using templates and LLM
-   - Writes tests
-   - Commits changes to worktree branch
+3. **Push local prompt edits back to snippets:**
 
-4. **Review and merge:**
-
-```bash
-dev agents merge agent/task-user-auth
+```powershell
+dev-sync write_agents
+dev-sync write_ralph
 ```
 
 ### Managing Snippets
@@ -789,22 +768,32 @@ Edit `specs/project_config.json` to customize:
       { "directory": ["src", "my_app", "use_cases", "dto.py"], "language": "python" }
     ],
     "api_output_config": [
-      { "directory": ["src", "my_app", "infrastructure", "routes.py"], "language": "python" }
+      {
+        "directory": ["src", "my_app", "infrastructure", "routes.py"],
+        "language": "python"
+      }
     ],
     "test_api_output_config": [
       { "directory": ["tests", "test_routes.py"], "language": "python" }
     ],
     "test_services_output_directory": ["tests"],
     "contract_sync_output_config": [
-      { "source_language": "python", "output_directory": ["src", "typescript_code", "schema"] },
-      { "source_language": "typescript", "output_directory": ["src", "python_code", "schema"] }
+      {
+        "source_language": "python",
+        "output_directory": ["src", "typescript_code", "schema"]
+      },
+      {
+        "source_language": "typescript",
+        "output_directory": ["src", "python_code", "schema"]
+      }
     ]
   }
 }
 ```
 
-Any class inside files containing `@contract` is translated to the opposite language using the
-same filename stem. Example: `types.ts` -> `types.py` in the configured destination.
+Any class inside files containing `@contract` is translated to the opposite language
+using the same filename stem. Example: `types.ts` -> `types.py` in the configured
+destination.
 
 ---
 
@@ -825,7 +814,7 @@ devOS bridges the gap between **prototype** and **production**:
 
 1. **Visual design tools** eliminate manual boilerplate
 2. **JSON specifications** ensure portability and type safety
-3. **Local agents** work autonomously on isolated worktrees
+3. **Ralph-first local workflows** keep automation under your control
 4. **Version-controlled snippets** standardize patterns across projects
 5. **LLM integration** handles unsupported languages and edge cases
 
@@ -869,7 +858,6 @@ MIT License — See [LICENSE](LICENSE) for details.
 - [ ] Support for more programming languages (Go, Rust, Java)
 - [ ] GraphQL schema generation
 - [ ] Integration with more task management tools (Jira, Linear, etc.)
-- [ ] Cloud-hosted agent orchestration (optional)
 - [ ] Real-time collaboration on drawORM canvas
 - [ ] Export to OpenAPI/Swagger specifications
 - [ ] Plugin system for custom code generators

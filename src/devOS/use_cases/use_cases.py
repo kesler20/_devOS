@@ -132,66 +132,6 @@ class OSInterface:
             return os.path.join(*paths)
 
 
-class GenerateDocstringsUseCase:
-
-    def _find_repo_root(self, start: Path | None = None) -> Path:
-        p = (start or Path.cwd()).resolve()
-        for candidate in [p, *p.parents]:
-            if (candidate / ".git").exists():
-                return candidate
-        return p  # best-effort fallback
-
-    def run_codex_format_numpy_docstrings(self, title: str, prompt_body: str) -> int:
-        repo_root = self._find_repo_root()
-        full_prompt = f"{title}\n\n{prompt_body}\n"
-
-        # Local Codex: use stdin (`-`) to avoid Windows command-length + quoting problems.
-        # Send UTF-8 bytes explicitly to avoid codepage/UTF-8 mismatch.
-        result = subprocess.run(
-            ["codex.cmd", "--full-auto", "exec", "-"],
-            cwd=repo_root,
-            input=full_prompt.encode("utf-8", errors="replace"),
-            check=False,
-        )
-        return result.returncode
-
-    def execute(self):
-        TITLE = "[codex] WI-01 Format docstrings under src/** (NumPy style)"
-        PROMPT = """Context:
-- Follow AGENTS.md for project-specific conventions (tests, style, architecture).
-- Goal: reformat/add docstrings using the NumPy docstring standard.
-
-Scope:
-- Only modify files under: src/**
-- Do not touch tests/, docs/, configs, or tooling.
-
-Process (do this in order):
-1) Planning pass:
-   - Enumerate all Python modules under src/**.
-   - Identify all classes and their methods (and module-level functions) that are missing docstrings or not in NumPy format.
-   - Print a concise checklist of targets (file → symbols) before editing anything.
-
-2) Editing pass:
-   - For each target symbol, add/reformat docstrings to NumPy style:
-     - Use sections only when relevant: Parameters, Returns, Raises, Yields, Attributes, See Also, Notes, Examples.
-     - Keep it minimal: do not rewrite code, do not rename symbols, do not refactor.
-     - If a method/function has no type hints:
-       - Use parameter names from the signature; add types only if obvious.
-       - Infer return type from the implementation where reasonable; otherwise omit “Returns” and provide only a short description.
-     - Include an “Examples” section only when it is small and clear; prefer 1–3 lines.
-
-3) Quality:
-   - Preserve behavior exactly (docstrings only).
-   - Keep diffs minimal and localized.
-   - Run the project’s standard test command from AGENTS.md; if none is specified, run pytest.
-   - If any test fails, fix only what is necessary.
-
-Output:
-- Summarize: files changed, tests run, and any edge cases where return types could not be inferred.
-"""
-        raise SystemExit(self.run_codex_format_numpy_docstrings(TITLE, PROMPT))
-
-
 class AggregateContextUseCase:
     def execute(self, input_extensions: str, directory: str | Path) -> Path:
         """
@@ -256,8 +196,8 @@ class AggregateContextUseCase:
 
         return out_path
 
+
 def main() -> int:
-    GenerateDocstringsUseCase().execute()
     return 0
 
 
