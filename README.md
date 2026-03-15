@@ -152,6 +152,54 @@ dev-update -DevOSPath "C:/path/to/devOS" -TargetDir "my-project"
 > **Activate your environment before running `dev-update`** — the script installs
 > directly into whatever `pip` is on your `PATH`.
 
+### Fast Local Sync for `AGENTS.md` and `ralph.sh`
+
+To keep local instruction files aligned with snippets in `prompts/`, add this
+function to your PowerShell profile (or to [devOS_profile.ps1](devOS_profile.ps1)):
+
+```powershell
+# A function that will run devOS to update specific files locally.
+function Sync-devOS {
+  param(
+    [string]$Target = ""
+  )
+
+  switch ($Target.ToLower()) {
+    "read_agents" {
+      dev get snippet from prompts,AGENTS.md to AGENTS.md
+    }
+    "read_ralph" {
+      dev get snippet from prompts,ralph.sh to ralph.sh
+    }
+    "write_agents" {
+      dev set snippet from AGENTS.md to prompts,AGENTS.md
+    }
+    "write_ralph" {
+      dev set snippet from ralph.sh to prompts,ralph.sh
+    }
+    default {
+      Write-Host "Unknown target: $Target. Supported targets: read_agents, read_ralph, write_agents, write_ralph."
+    }
+  }
+}
+Set-Alias dev-sync Sync-devOS
+```
+
+Example usage:
+
+```powershell
+# Pull down snippet updates
+dev-sync read_agents
+dev-sync read_ralph
+
+# Push local edits back into snippets
+dev-sync write_agents
+dev-sync write_ralph
+```
+
+This gives you a quick read/write partition so you can edit locally, then sync
+back to devOS snippet storage immediately.
+
 ---
 
 ## Table of Contents
@@ -714,6 +762,13 @@ dev set snippet from path,to,local,adapters.py to python,database-adapters,adapt
 
 ```bash
 dev delete snippet python,database-adapters,adapters.py
+```
+
+5. **Use the local sync alias for prompts docs/scripts:**
+
+```powershell
+dev-sync read_agents
+dev-sync write_agents
 ```
 
 ### Configuration
