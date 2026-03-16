@@ -40,6 +40,11 @@ class File:
 
         self.filename = filename.as_posix()  # type: ignore
 
+        # Create parent directories if they don't exist
+        dir_name = os.path.dirname(self.filename)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+
     def __repr__(self) -> str:
         return f"""
 File(
@@ -324,6 +329,18 @@ File(
         with open(self.filename, "w") as file:
             file.write(f"{content}\n")
 
+    def writeline_as_utf8(self, content: str) -> None:
+        """
+        Write a single line to the file with UTF-8 encoding, overwriting the existing content.
+
+        Parameters
+        ----------
+        content : str
+            The content to be written as a single line to the file.
+        """
+        with open(self.filename, "w", encoding="utf-8") as file:
+            file.write(f"{content}\n")
+
     def writelines(self, content: types.List[str]) -> None:
         """
         Write multiple lines to the file, overwriting the existing content.
@@ -336,7 +353,21 @@ File(
         with open(self.filename, "w") as file:
             file.writelines([f"{line}" for line in content])
 
-    def read_line_by_condition(self, condition: types.Callable[[str], bool]) -> types.List[str]:
+    def writelines_as_utf8(self, content: types.List[str]) -> None:
+        """
+        Write multiple lines to the file with UTF-8 encoding, overwriting the existing content.
+
+        Parameters
+        ----------
+        content : list[str]
+            A list of strings to be written as lines to the file.
+        """
+        with open(self.filename, "w", encoding="utf-8") as file:
+            file.writelines([f"{line}" for line in content])
+
+    def read_line_by_condition(
+        self, condition: types.Callable[[str], bool]
+    ) -> types.List[str]:
         """
         Read lines from the file that meet a specific condition.
 
