@@ -38,7 +38,7 @@ class File:
         
         self.filename = filename.as_posix()  # type: ignore
 
-        # Create parent directories if they don't exist
+    def _ensure_parent_dirs(self) -> None:
         dir_name = os.path.dirname(self.filename)
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
@@ -99,6 +99,7 @@ File(
         content : str
             The content to be appended to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "a") as file:
             file.write(content + "\n")
 
@@ -111,6 +112,7 @@ File(
         content : str
             The content to be appended to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "a", encoding="utf-8") as file:
             file.write(content + "\n")
 
@@ -183,6 +185,7 @@ File(
         content : str
             The content to be written to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w", encoding="utf-8") as file:
             file.write(content)
 
@@ -195,6 +198,7 @@ File(
         content : str
             The content to be written to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w") as file:
             file.write(content)
 
@@ -288,6 +292,7 @@ File(
         content : dict or list
             The content to be written to the JSON file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w") as json_file:
             json_file.write(json.dumps(content, indent=2))
 
@@ -300,6 +305,7 @@ File(
         content : str
             The content to be written as a single line to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w") as file:
             file.write(f"{content}\n")
 
@@ -312,6 +318,7 @@ File(
         content : list[str]
             A list of strings to be written as lines to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w") as file:
             file.writelines([f"{line}" for line in content])
 

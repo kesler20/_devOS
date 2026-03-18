@@ -6,7 +6,6 @@ import typing as types
 import json
 import os
 from pathlib import Path
-import PyPDF2
 
 
 class File:
@@ -28,7 +27,6 @@ class File:
     >>> lines = File("path/to/python/file").readlines()
     >>> lines = File("path", "to", "python","file").readlines()
     ```
-
     """
 
     def __init__(self, filename: types.Union[Path, str], *relative_path) -> None:
@@ -40,7 +38,7 @@ class File:
 
         self.filename = filename.as_posix()  # type: ignore
 
-        # Create parent directories if they don't exist
+    def _ensure_parent_dirs(self) -> None:
         dir_name = os.path.dirname(self.filename)
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
@@ -101,6 +99,7 @@ File(
         content : str
             The content to be appended to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "a") as file:
             file.write(content + "\n")
 
@@ -113,6 +112,7 @@ File(
         content : str
             The content to be appended to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "a", encoding="utf-8") as file:
             file.write(content + "\n")
 
@@ -185,6 +185,7 @@ File(
         content : str
             The content to be written to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w", encoding="utf-8") as file:
             file.write(content)
 
@@ -197,6 +198,7 @@ File(
         content : str
             The content to be written to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w") as file:
             file.write(content)
 
@@ -279,30 +281,6 @@ File(
             content: types.Dict[types.Any, types.Any] = json.loads(json_file.read())
         return content
 
-    def read_text_from_pdf(self) -> str:
-        """Read the contents of a PDF file.
-
-        Returns
-        -------
-        All the text of all the pages of the PDF file.
-        """
-        if not self.filename.lower().endswith("pdf"):
-            raise ValueError("File is not a PDF: " + self.filename)
-
-        text = ""
-        try:
-            with open(self.filename, "rb") as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                for page in pdf_reader.pages:
-                    page_text = page.extract_text() if page.extract_text() else ""
-                    text += page_text + " "
-        except Exception as e:
-            # Handle specific exceptions as needed, and consider logging or re-raising them
-            print(f"Error processing file {self.filename}: {e}")
-            return ""
-
-        return text.strip()
-
     def write_json(
         self, content: types.Union[types.Dict[str, types.Any], types.List[types.Any]]
     ) -> None:
@@ -314,6 +292,7 @@ File(
         content : dict or list
             The content to be written to the JSON file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w") as json_file:
             json_file.write(json.dumps(content, indent=2))
 
@@ -326,19 +305,8 @@ File(
         content : str
             The content to be written as a single line to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w") as file:
-            file.write(f"{content}\n")
-
-    def writeline_as_utf8(self, content: str) -> None:
-        """
-        Write a single line to the file with UTF-8 encoding, overwriting the existing content.
-
-        Parameters
-        ----------
-        content : str
-            The content to be written as a single line to the file.
-        """
-        with open(self.filename, "w", encoding="utf-8") as file:
             file.write(f"{content}\n")
 
     def writelines(self, content: types.List[str]) -> None:
@@ -350,19 +318,8 @@ File(
         content : list[str]
             A list of strings to be written as lines to the file.
         """
+        self._ensure_parent_dirs()
         with open(self.filename, "w") as file:
-            file.writelines([f"{line}" for line in content])
-
-    def writelines_as_utf8(self, content: types.List[str]) -> None:
-        """
-        Write multiple lines to the file with UTF-8 encoding, overwriting the existing content.
-
-        Parameters
-        ----------
-        content : list[str]
-            A list of strings to be written as lines to the file.
-        """
-        with open(self.filename, "w", encoding="utf-8") as file:
             file.writelines([f"{line}" for line in content])
 
     def read_line_by_condition(
