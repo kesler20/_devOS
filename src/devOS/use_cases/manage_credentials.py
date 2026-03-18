@@ -30,17 +30,52 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
         super().__init__(os.getcwd())
         self.vault_dir = os.path.join(os.path.expanduser("~"), *credentials_vault)
 
+    def _generate_masked_env_example(self, dotenv_content: str) -> str:
+        """Generate a masked .env.example from .env content.
+
+        Keeps all keys and comments but replaces all values with empty strings.
+
+        Parameters
+        ----------
+        dotenv_content : str
+            The full content of the .env file.
+
+        Returns
+        -------
+        str
+            Masked content suitable for .env.example.
+        """
+        masked_lines = []
+        for line in dotenv_content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#") or stripped == "":
+                masked_lines.append(line)
+            elif "=" in line:
+                key = line.split("=", 1)[0]
+                masked_lines.append(f"{key}=")
+            else:
+                masked_lines.append(line)
+        return "\n".join(masked_lines)
+
     def set_credentials(self, project_name: str):
-        """Store project .env files in the credentials vault.
+        """Store project .env in the vault and write a masked .env.example locally.
+
+        Reads the current .env file, saves it to the vault, then generates a
+        masked copy (all values stripped) and writes it both to the project
+        directory as .env.example and to the vault.
 
         Parameters
         ----------
         project_name : str
             Project name used to namespace stored files.
         """
-        self.log_message(f"Reading .env and .env.example from {self.directory}")
+        self.log_message(f"Reading .env from {self.directory}")
         dotenv_content = File(".env").read_as_utf8()
-        dotenv_example_content = File(".env.example").read_as_utf8()
+
+        dotenv_example_content = self._generate_masked_env_example(dotenv_content)
+
+        self.log_message("Writing masked .env.example to project directory")
+        File(".env.example").write_as_utf8(dotenv_example_content)
 
         self.log_message(
             f"Writing .env to vault at {os.path.join(self.vault_dir, project_name, f'dotenv_{project_name}.txt')}"
