@@ -322,6 +322,19 @@ File(
         with open(self.filename, "w") as file:
             file.writelines([f"{line}" for line in content])
 
+    def writelines_as_utf8(self, content: types.List[str]) -> None:
+        """
+        Write multiple lines to the file with UTF-8 encoding, overwriting the existing content.
+
+        Parameters
+        ----------
+        content : list[str]
+            A list of strings to be written as lines to the file.
+        """
+        self._ensure_parent_dirs()
+        with open(self.filename, "w", encoding="utf-8") as file:
+            file.writelines([f"{line}" for line in content])
+
     def read_line_by_condition(
         self, condition: types.Callable[[str], bool]
     ) -> types.List[str]:
