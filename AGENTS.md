@@ -1075,6 +1075,100 @@ services/
             adapters.py
 ```
 
+---
+
+## 11. TypeScript
+
+The same core philosophy applies to TypeScript: classes for encapsulation and orchestration, minimal state, domain-language naming. The patterns below supplement the language-agnostic rules above and are derived from production refactoring of use cases.
+
+### 11.1. Class Method Ordering
+
+Declare private arrow-function methods **before** public methods. The public method is the entry point — it reads most clearly when the helpers it calls are already defined above it.
+
+```typescript
+export default class CreateNodeUseCase {
+  private readonly allowedExtensions = new Set([".py", ".csv"]);
+
+  // Private helpers first
+  private extractOutputParams = async (file: File): Promise<Param[]> => { ... };
+
+  private createModelNode = async (file: File): Promise<NodeType> => { ... };
+
+  // Public entry point last
+  createNodeFromFile = async (file: File): Promise<Response> => {
+    // calls the private helpers above
+  };
+}
+```
+
+### 11.2. Inline One-Off Helpers
+
+Do not extract a private method for logic that is used only once and fits in a single expression. Inline it directly at the call site.
+
+```typescript
+// Bad: a two-line private method promoted for a single call site
+private getExtension = (fileName: string) => {
+  return `.${(fileName.split(".").pop() || "").toLowerCase()}`;
+};
+// const extension = this.getExtension(file.name);
+
+// Good: inline the expression
+const extension = `.${(file.name.split(".").pop() || "").toLowerCase()}`;
+```
+
+The same applies to small utility steps (e.g. simple persistence calls): if the logic fits cleanly in the calling method, do not split it out.
+
+### 11.3. Prefer Ternary Over If/Else for Binary Assignment
+
+When two branches produce values assigned to the same variable, use a ternary expression rather than an `if`/`else` block.
+
+```typescript
+// Bad: if/else for a simple assignment
+let node: NodeType;
+if (extension === ".py") {
+  node = await this.createModelNode(file);
+} else {
+  node = await this.createDataSetNode(file);
+}
+
+// Good: ternary expression
+const node = extension === ".py"
+  ? await this.createModelNode(file)
+  : await this.createDataSetNode(file);
+```
+
+### 11.4. Comments and Logging
+
+Add a comment before each logical block describing what you are about to do. Log after contract-changing operations (saves, creates, deletes, external calls).
+
+```typescript
+createNodeFromFile = async (file: File): Promise<CreateNodeResponse> => {
+  // Validate the file and resolve the extension.
+  const extension = `.${(file.name.split(".").pop() || "").toLowerCase()}`;
+  if (!this.allowedExtensions.has(extension)) {
+    throw new Error(`File extension not allowed.`);
+  }
+
+  // Build the node from the file content.
+  const node = extension === ".py"
+    ? await this.createModelNode(file)
+    : await this.createDataSetNode(file);
+
+  // Persist the node to storage.
+  const { error } = await this.fileStorage.CREATE({
+    resourceName: `${node.name}-${node.version}.json`,
+    resourcePath: extension === ".py" ? CardDetail.Model : CardDetail.DataSet,
+    resourceContent: node,
+  });
+  if (error) throw new Error(`Failed to persist node: ${error}`);
+  console.log(`Node persisted: ${node.name}`);
+
+  return { node };
+};
+```
+
+---
+
 ### 10.4. Adding New Features
 
 When adding a new feature, start from the end in mind: design the **route or message handler** first (how the feature is triggered and what the response looks like), then the **DTO** (what data crosses the boundary), then the **use case** (what logic orchestrates the feature), then the **adapter** (what infrastructure is needed). This outside-in approach gives you TDD-like benefits — you define the desired interface before building the internals, which prevents over-engineering and keeps the implementation focused on what the consumer actually needs. Reuse existing layers if they are available.
