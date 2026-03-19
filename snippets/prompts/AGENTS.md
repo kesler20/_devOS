@@ -292,13 +292,9 @@ def calculate_price_if_available(product: Product, quantity: int) -> float | Non
     return None
 ```
 
-### 3.5. Prefer Fewer, Larger Functions
+### 3.5. Nested Functions for Local Extraction
 
-Prefer a smaller set of larger functions over many tiny functions. Keep the flow in one place when that improves readability and reduces indirection.
-
-When a piece of logic is used only once and extracting it improves readability, define a nested function inside the parent function instead of creating a class-level private method.
-
-Promote a nested function to a class-level method only when it is reused in multiple methods.
+When a function grows large, refactor by extracting helper functions *inside* the parent function. This avoids polluting the class with private methods that only serve one caller. Promote an inner function to a private class method only when it needs to be reused by other methods.
 
 **Testability trade-off:** Inner functions cannot be tested in isolation. This is acceptable when the parent function's tests exercise all edge cases of the inner logic through the parent's public interface. The goal is to test *behaviour*, not individual functions. If you find that the inner function has complex branching logic that is difficult to cover through the parent, promote it to a private method or a standalone function so it can be tested directly.
 
@@ -315,15 +311,15 @@ class ReportGenerator:
         def build_summary_line(category: str, total: float) -> str:
             return f"{category}: £{total:.2f}"
 
-        categorised_transactions: dict[str, list[Transaction]] = {}
+        categorised = {}
         for transaction in transactions:
             category = categorise_transaction(transaction)
-            categorised_transactions.setdefault(category, []).append(transaction)
+            categorised.setdefault(category, []).append(transaction)
 
-        summary_lines: list[str] = []
-        for category, grouped_transactions in categorised_transactions.items():
-            total_amount = sum(t.amount for t in grouped_transactions)
-            summary_lines.append(build_summary_line(category, total_amount))
+        summary_lines = []
+        for category, group in categorised.items():
+            total = sum(t.amount for t in group)
+            summary_lines.append(build_summary_line(category, total))
 
         return Report(lines=summary_lines)
 ```
@@ -334,14 +330,9 @@ class ReportGenerator:
 
 Data classes are the foundation of every programme. They store data, enforce business rules, and expose behaviour through methods keeping orchestration code simple and readable.
 
-### 4.1. Private Method Conventions
+### 4.1. Private by Default
 
-Keep class-level private methods to a minimum. Prefer nested functions for single-use helper logic.
-
-When class-level private methods are required, follow both rules:
-
-1. Use double-underscore naming (`__method_name`) for private methods.
-2. Place all private methods at the top of the class, before public methods.
+Write all methods as private by default. Only make a method public when it is required by an external consumer. This minimises the surface area of the class and makes dependencies explicit.
 
 ```python
 from dataclasses import dataclass
@@ -349,15 +340,15 @@ from dataclasses import dataclass
 
 @dataclass
 class Account:
-    balance: float
-    currency: str
-    is_active: bool
-
-    def __has_positive_balance(self) -> bool:
-        return self.balance > 0
+    _balance: float
+    _currency: str
+    _is_active: bool
 
     def is_valid(self) -> bool:
-        return self.is_active and self.__has_positive_balance()
+        return self._is_active and self._has_positive_balance()
+
+    def _has_positive_balance(self) -> bool:
+        return self._balance > 0
 ```
 
 ### 4.2. Tell, Don't Ask
