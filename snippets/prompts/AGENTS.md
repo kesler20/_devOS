@@ -1,6 +1,3 @@
-# Design Document Authority and Implementation Guidelines
-Read the design document and treat it as authoritative for repo-specific constraints, endpoint usage and API shape, UI / software / system design examples, and feature-specific implementation boundaries. If there is no design document or it does not cover a specific aspect of the implementation fallback to the guidelines in this document.
-
 Prefer minimal, localised diffs that are easy to review. Reuse existing components and state patterns as much as possible before creating new ones.
 
 # Overall Programming
@@ -1179,7 +1176,7 @@ Use headings like:
 ## 3. Page Template (Block Comments + OBSERVE STATE + UTILS)
 
 Use these sections in this order. Keep each section short.
-IT IS IMPORTANT TO NOTE THAT BLOCK COMMENTS HAVE 5 LINES NOT 3.
+Block comments MUST have exactly 5 lines. 3-line block comments are categorically forbidden.
 ```tsx
 export default function SomePage() {
   
@@ -1342,6 +1339,48 @@ Use more advanced patterns only when strictly necessary.
 * Own all event handlers (or `send(...)` when using `useReducer` / `xstate`).
 
 Rule: each page is responsible for its own state. Avoid cross-page shared state unless absolutely required.
+
+### 5.3 Prop Types: Always Inline
+
+Define prop types inline on the component function. Never define a separate `type Props = { ... }` unless that type is explicitly referenced elsewhere in the code (e.g. passed to a utility function or imported by another module).
+
+```tsx
+// CORRECT — inline
+function ItemRow(props: {
+  item: Item;
+  onEventDeleteItem: (itemId: string) => void;
+}) { ... }
+
+// WRONG — separate type that is never referenced elsewhere
+type ItemRowProps = { item: Item; onEventDeleteItem: (itemId: string) => void };
+function ItemRow(props: ItemRowProps) { ... }
+```
+
+### 5.4 Layout and Structure Stay in the Page Component
+
+Rows, groups, grids, and overall structural `div`/`span` wrappers belong in the page component's JSX, not inside dumb child components — unless strictly necessary (e.g. a component that is inherently a row or a card by design).
+
+Keep the skeleton of the layout visible at the page level so the structure is easy to scan.
+
+```tsx
+// CORRECT — structure is in the page
+return (
+  <div className="grid grid-cols-2 gap-4">
+    {items.map((item) => (
+      <ItemCard key={item.id} item={item} onEventSelect={handleEventSelectItem} />
+    ))}
+  </div>
+);
+
+// WRONG — grid is hidden inside ItemCard
+function ItemCard(props: { ... }) {
+  return (
+    <div className="grid grid-cols-2 gap-4"> {/* structural layout belongs in the page */}
+      ...
+    </div>
+  );
+}
+```
 
 ---
 
