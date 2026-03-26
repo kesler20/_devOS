@@ -329,7 +329,9 @@ Data classes are the foundation of every programme. They store data, enforce bus
 
 ### 4.1. Private by Default
 
-Write all methods as private by default. Only make a method public when it is required by an external consumer. This minimises the surface area of the class and makes dependencies explicit.
+Write all class methods as private by default using double-underscore (`__`) name mangling. Only make a method public when it is required by an external consumer. Private instance properties are also declared with `__` prefix.
+
+This convention applies **only within class definitions**. Never use underscore prefixes on module-level variables, standalone functions, or local variables inside functions.
 
 ```python
 from dataclasses import dataclass
@@ -337,15 +339,15 @@ from dataclasses import dataclass
 
 @dataclass
 class Account:
-    _balance: float
-    _currency: str
-    _is_active: bool
+    __balance: float
+    __currency: str
+    __is_active: bool
 
     def is_valid(self) -> bool:
-        return self._is_active and self._has_positive_balance()
+        return self.__is_active and self.__has_positive_balance()
 
-    def _has_positive_balance(self) -> bool:
-        return self._balance > 0
+    def __has_positive_balance(self) -> bool:
+        return self.__balance > 0
 ```
 
 ### 4.2. Tell, Don't Ask
@@ -361,15 +363,15 @@ def check_account(account: Account) -> bool:
 # Good: the object knows how to answer
 @dataclass
 class Account:
-    _balance: float
-    _currency: str
-    _is_active: bool
+    __balance: float
+    __currency: str
+    __is_active: bool
 
     def is_valid_for_withdrawal(self, required_currency: str) -> bool:
         return (
-            self._is_active
-            and self._balance > 0
-            and self._currency == required_currency
+            self.__is_active
+            and self.__balance > 0
+            and self.__currency == required_currency
         )
 ```
 
@@ -483,7 +485,7 @@ class ToolCallingUseCase:
         available_tools = self.tool_registry.list_tools()
         logging.info("Found %d available tools", len(available_tools))
 
-        raw_results = self._call_tools(run_input, available_tools)
+        raw_results = self.__call_tools(run_input, available_tools)
         cleaned_outputs = [result.output_text.strip() for result in raw_results]
         logging.info("Cleaned %d tool outputs", len(cleaned_outputs))
 
@@ -493,7 +495,7 @@ class ToolCallingUseCase:
             status=RunStatus.COMPLETE,
         )
 
-    def _call_tools(
+    def __call_tools(
         self, run_input: AgentRunInput, tools: list[Tool]
     ) -> list[ToolResult]:
         results = []
@@ -539,11 +541,11 @@ Adapters wrap infrastructure concerns. Clients wrap external libraries and manag
 ```python
 @dataclass
 class PostgresDatabaseAdapter:
-    _client: PostgresClient
+    __client: PostgresClient
 
     def save_user(self, user: UserDAO) -> None:
         logging.info("Saving user %s to PostgreSQL", user.name)
-        self._client.execute(
+        self.__client.execute(
             "INSERT INTO users (id, name) VALUES (%s, %s)",
             (user.id, user.name),
         )
@@ -551,7 +553,7 @@ class PostgresDatabaseAdapter:
 
     def find_user_by_id(self, user_id: int) -> UserDAO | None:
         logging.info("Looking up user %d", user_id)
-        row = self._client.fetch_one(
+        row = self.__client.fetch_one(
             "SELECT id, name FROM users WHERE id = %s", (user_id,)
         )
         if row is None:
@@ -827,22 +829,22 @@ class DatabaseConnection:
         ...
 
 
-_db_connection: DatabaseConnection | None = None
+db_connection: DatabaseConnection | None = None
 
 
 def get_database_connection(connection_string: str | None = None) -> DatabaseConnection:
-    global _db_connection
-    if _db_connection is None:
+    global db_connection
+    if db_connection is None:
         if connection_string is None:
             raise RuntimeError("DatabaseConnection has not been initialised. Provide a connection_string.")
-        _db_connection = DatabaseConnection(connection_string=connection_string)
-    return _db_connection
+        db_connection = DatabaseConnection(connection_string=connection_string)
+    return db_connection
 
 
 def reset_database_connection() -> None:
     """For testing: tear down the singleton so the next call re-initialises it."""
-    global _db_connection
-    _db_connection = None
+    global db_connection
+    db_connection = None
 ```
 
 The factory makes initialisation explicit and raises when the singleton is accessed before setup. The `reset` function exists solely for test teardown.
@@ -863,13 +865,13 @@ T = typing.TypeVar("T")
 
 @dataclass
 class EventBus:
-    _handlers: dict[type, list[typing.Callable]] = field(default_factory=dict)
+    __handlers: dict[type, list[typing.Callable]] = field(default_factory=dict)
 
     def subscribe(self, event_type: type[T], handler: typing.Callable[[T], None]) -> None:
-        self._handlers.setdefault(event_type, []).append(handler)
+        self.__handlers.setdefault(event_type, []).append(handler)
 
     def publish(self, event: object) -> None:
-        for handler in self._handlers.get(type(event), []):
+        for handler in self.__handlers.get(type(event), []):
             handler(event)
 
 
