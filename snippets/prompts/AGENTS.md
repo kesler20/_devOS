@@ -724,6 +724,26 @@ def mendeley_login(request: Request):
     return RedirectResponse(url=url)
 ```
 
+### 6.5. Type Casting
+
+When you are confident that a value has a specific type but the type checker cannot infer it, use `typing.cast` to make the assertion explicit. Never use `# type: ignore` or bare `Any` as a workaround — `typing.cast` documents the intent and keeps the type system honest.
+
+```python
+import typing
+
+
+# When a dict lookup returns a value you know is a specific type
+raw_config = load_config()
+timeout = typing.cast(int, raw_config["timeout"])
+
+# When narrowing from a base class to a known subclass
+event = get_next_event()
+order_placed = typing.cast(OrderPlacedEvent, event)
+
+# When a third-party library returns Any but the shape is known
+response_data = typing.cast(dict[str, list[str]], api_client.fetch())
+```
+
 ---
 
 ## 7. Testing Strategy
