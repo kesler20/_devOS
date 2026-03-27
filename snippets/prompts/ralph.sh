@@ -12,7 +12,7 @@ for ((i=1; i<=$1; i++)); do
 
   result=$(
     cat <<'PROMPT' | codex exec --skip-git-repo-check --full-auto --cd . -
-@docs/prd.json
+@prd.json
 @docs/Design Document.md
 @AGENTS.md
 @progress.txt 
