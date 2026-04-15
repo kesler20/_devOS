@@ -343,11 +343,11 @@ class Account:
     __currency: str
     __is_active: bool
 
-    def is_valid(self) -> bool:
-        return self.__is_active and self.__has_positive_balance()
-
     def __has_positive_balance(self) -> bool:
         return self.__balance > 0
+
+    def is_valid(self) -> bool:
+        return self.__is_active and self.__has_positive_balance()
 ```
 
 ### 4.2. Tell, Don't Ask
@@ -479,6 +479,20 @@ class ToolCallingUseCase:
     chat_client: ChatModelClient
     tool_registry: ToolRegistryAdapter
 
+    def __call_tools(
+        self, run_input: AgentRunInput, tools: list[Tool]
+    ) -> list[ToolResult]:
+        results = []
+        for step in range(run_input.max_steps):
+            response = self.chat_client.generate(run_input.prompt, tools)
+            if response.has_tool_call():
+                result = self.tool_registry.invoke(response.tool_call)
+                results.append(result)
+                logging.info("Step %d: called %s", step, result.tool_name)
+            else:
+                break
+        return results
+
     def execute(self, run_input: AgentRunInput) -> AgentRunSummary:
         logging.info("Starting tool calling for prompt: %s", run_input.prompt)
 
@@ -494,20 +508,6 @@ class ToolCallingUseCase:
             cleaned_outputs=cleaned_outputs,
             status=RunStatus.COMPLETE,
         )
-
-    def __call_tools(
-        self, run_input: AgentRunInput, tools: list[Tool]
-    ) -> list[ToolResult]:
-        results = []
-        for step in range(run_input.max_steps):
-            response = self.chat_client.generate(run_input.prompt, tools)
-            if response.has_tool_call():
-                result = self.tool_registry.invoke(response.tool_call)
-                results.append(result)
-                logging.info("Step %d: called %s", step, result.tool_name)
-            else:
-                break
-        return results
 ```
 ### 5.2. Composing Use Cases
 
@@ -743,6 +743,10 @@ order_placed = typing.cast(OrderPlacedEvent, event)
 # When a third-party library returns Any but the shape is known
 response_data = typing.cast(dict[str, list[str]], api_client.fetch())
 ```
+
+### 6.6. Backward Compatibility
+
+Do not worry about backward compatibility. When renaming, removing, or changing an interface, update all call sites directly rather than adding shims, aliases, or deprecation layers. Delete unused code outright — do not leave it behind with comments or `_old` suffixes.
 
 ---
 
