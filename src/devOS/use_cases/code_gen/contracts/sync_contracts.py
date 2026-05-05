@@ -140,23 +140,41 @@ class SyncContractsUseCase:
         source_language: entities.SupportedLanguagesValues,
     ) -> bool:
         if source_language == "python":
-            return "Schema = z.object({" in translated_code
+            return (
+                "Schema = z.object({" in translated_code
+                or "Schema = z.enum([" in translated_code
+            )
         if source_language == "typescript":
             return (
                 "class " in translated_code
-                and "(pydantic.BaseModel):" in translated_code
+                and (
+                    "(pydantic.BaseModel):" in translated_code
+                    or "(str, enum.Enum):" in translated_code
+                )
             )
         return False
 
     def _translate_python_to_typescript(self, source_code: str) -> str:
         class_specs = self._parse_python_contract_classes(source_code)
-        if not class_specs:
+        enum_specs = self._parse_python_contract_enums(source_code)
+
+        if not class_specs and not enum_specs:
             return "import { z } from 'zod';\n"
 
         lines: list[str] = [
             "import { z } from 'zod';",
             "",
         ]
+
+        for class_name, members in enum_specs:
+            members_str = ", ".join(f"'{m}'" for m in members)
+            lines.append(
+                f"export const {class_name}Schema = z.enum([{members_str}]);"
+            )
+            lines.append(
+                f"export type {class_name} = z.infer<typeof {class_name}Schema>;"
+            )
+            lines.append("")
 
         for class_name, fields in class_specs:
             lines.append(f"export const {class_name}Schema = z.object({{")
@@ -206,6 +224,42 @@ class SyncContractsUseCase:
                 class_specs.append((node.name, fields))
 
         return class_specs
+
+    def _parse_python_contract_enums(
+        self, source_code: str
+    ) -> list[tuple[str, list[str]]]:
+        try:
+            module = ast.parse(source_code)
+        except SyntaxError:
+            return []
+
+        enum_specs: list[tuple[str, list[str]]] = []
+        for node in module.body:
+            if not isinstance(node, ast.ClassDef):
+                continue
+            if not self._is_enum_class(node):
+                continue
+
+            members: list[str] = []
+            for item in node.body:
+                if not isinstance(item, ast.Assign):
+                    continue
+                if not isinstance(item.value, ast.Constant):
+                    continue
+                members.append(str(item.value.value))
+
+            if members:
+                enum_specs.append((node.name, members))
+
+        return enum_specs
+
+    def _is_enum_class(self, node: ast.ClassDef) -> bool:
+        enum_names = {"Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"}
+        for base in node.bases:
+            name = self._full_name(base)
+            if name in enum_names or name.split(".")[-1] in enum_names:
+                return True
+        return False
 
     def _strip_optional_annotation(self, node: ast.AST) -> tuple[ast.AST, bool]:
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
@@ -262,15 +316,23 @@ class SyncContractsUseCase:
 
     def _translate_typescript_to_python(self, source_code: str) -> str:
         schema_specs = self._parse_typescript_contract_schemas(source_code)
-        if not schema_specs:
+        enum_specs = self._parse_typescript_contract_enums(source_code)
+
+        if not schema_specs and not enum_specs:
             return "from __future__ import annotations\nimport pydantic\n"
 
-        lines: list[str] = [
-            "from __future__ import annotations",
-            "import typing",
-            "import pydantic",
-            "",
-        ]
+        lines: list[str] = ["from __future__ import annotations"]
+        if schema_specs:
+            lines.extend(["import typing", "import pydantic"])
+        if enum_specs:
+            lines.append("import enum")
+        lines.append("")
+
+        for class_name, members in enum_specs:
+            lines.append(f"class {class_name}(str, enum.Enum):")
+            for member_name, member_value in members:
+                lines.append(f'    {member_name} = "{member_value}"')
+            lines.append("")
 
         for class_name, fields in schema_specs:
             lines.append(f"class {class_name}(pydantic.BaseModel):")
@@ -319,6 +381,31 @@ class SyncContractsUseCase:
                 class_specs.append((class_name, fields))
 
         return class_specs
+
+    def _parse_typescript_contract_enums(
+        self, source_code: str
+    ) -> list[tuple[str, list[tuple[str, str]]]]:
+        pattern = re.compile(
+            r"(?:export\s+)?const\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)Schema\s*=\s*z\.enum\(\s*\[(?P<body>.*?)\]\s*\)\s*;",
+            re.DOTALL,
+        )
+
+        enum_specs: list[tuple[str, list[tuple[str, str]]]] = []
+        for match in pattern.finditer(source_code):
+            class_name = match.group("name")
+            body = match.group("body")
+
+            members: list[tuple[str, str]] = []
+            for raw_member in body.split(","):
+                value = raw_member.strip().strip("'\"")
+                if value:
+                    member_name = re.sub(r"[^A-Za-z0-9]", "_", value).upper()
+                    members.append((member_name, value))
+
+            if members:
+                enum_specs.append((class_name, members))
+
+        return enum_specs
 
     def _zod_expression_to_python_type(self, expression: str) -> tuple[str, bool]:
         optional = ".optional()" in expression or ".nullable()" in expression

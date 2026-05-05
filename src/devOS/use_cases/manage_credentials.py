@@ -111,6 +111,29 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
         self.log_message(f"Writing .env.example to {self.directory}")
         File(".env.example").write(dotenv_example_content)
 
+    def set_credential(self, key: str, value: str):
+        """Append a key-value pair to the local .env and sync to the vault.
+
+        Appends ``key=value`` to the project's .env file, then runs the full
+        set_credentials routine so the vault and .env.example are kept in sync.
+        The project name is derived from the current working directory name.
+
+        Parameters
+        ----------
+        key : str
+            Environment variable name to add.
+        value : str
+            Environment variable value to add.
+        """
+        self.log_message(f"Appending {key} to .env")
+        existing = File(".env").read_as_utf8()
+        updated = existing.rstrip("\n") + f"\n{key}={value}\n"
+        File(".env").write_as_utf8(updated)
+
+        project_name = os.path.basename(os.getcwd())
+        self.log_message(f"Syncing credentials for project '{project_name}'")
+        self.set_credentials(project_name)
+
     def set_global_secret(self, secret_key: str, secret_value: str):
         """Store a global secret in the vault.
 

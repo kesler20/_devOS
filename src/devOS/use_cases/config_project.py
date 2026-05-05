@@ -139,7 +139,7 @@ class ConfigProjectUseCase(use_cases.OSInterface):
         def get_default(path, fallback=""):
             """Helper to get a nested value from existing_config or fallback."""
             val = None
-            if self.update_existing_config:
+            if self.update_existing_config and File("specs", "project_config.json").exists():
                 val = File("specs", "project_config.json").get_json()
                 try:
                     for key in path:

@@ -50,6 +50,7 @@ mapper = {
             "leaf node": snippet_manager.set,
             "folder": {"leaf node": snippet_manager.set_folder},
         },
+        "credential": {"leaf node": credentials_manager.set_credential},
         "credentials": {"leaf node": credentials_manager.set_credentials},
         "secrets": {"leaf node": credentials_manager.set_global_secret},
     },

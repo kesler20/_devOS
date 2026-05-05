@@ -1,6 +1,3 @@
-# Design Document Authority and Implementation Guidelines
-Read the design document and treat it as authoritative for repo-specific constraints, endpoint usage and API shape, UI / software / system design examples, and feature-specific implementation boundaries. If there is no design document or it does not cover a specific aspect of the implementation fallback to the guidelines in this document.
-
 Prefer minimal, localised diffs that are easy to review. Reuse existing components and state patterns as much as possible before creating new ones.
 
 # Overall Programming
@@ -332,7 +329,9 @@ Data classes are the foundation of every programme. They store data, enforce bus
 
 ### 4.1. Private by Default
 
-Write all methods as private by default. Only make a method public when it is required by an external consumer. This minimises the surface area of the class and makes dependencies explicit.
+Write all class methods as private by default using double-underscore (`__`) name mangling. Only make a method public when it is required by an external consumer. Private instance properties are also declared with `__` prefix.
+
+This convention applies **only within class definitions**. Never use underscore prefixes on module-level variables, standalone functions, or local variables inside functions.
 
 ```python
 from dataclasses import dataclass
@@ -340,15 +339,15 @@ from dataclasses import dataclass
 
 @dataclass
 class Account:
-    _balance: float
-    _currency: str
-    _is_active: bool
+    __balance: float
+    __currency: str
+    __is_active: bool
+
+    def __has_positive_balance(self) -> bool:
+        return self.__balance > 0
 
     def is_valid(self) -> bool:
-        return self._is_active and self._has_positive_balance()
-
-    def _has_positive_balance(self) -> bool:
-        return self._balance > 0
+        return self.__is_active and self.__has_positive_balance()
 ```
 
 ### 4.2. Tell, Don't Ask
@@ -364,15 +363,15 @@ def check_account(account: Account) -> bool:
 # Good: the object knows how to answer
 @dataclass
 class Account:
-    _balance: float
-    _currency: str
-    _is_active: bool
+    __balance: float
+    __currency: str
+    __is_active: bool
 
     def is_valid_for_withdrawal(self, required_currency: str) -> bool:
         return (
-            self._is_active
-            and self._balance > 0
-            and self._currency == required_currency
+            self.__is_active
+            and self.__balance > 0
+            and self.__currency == required_currency
         )
 ```
 
@@ -480,23 +479,7 @@ class ToolCallingUseCase:
     chat_client: ChatModelClient
     tool_registry: ToolRegistryAdapter
 
-    def execute(self, run_input: AgentRunInput) -> AgentRunSummary:
-        logging.info("Starting tool calling for prompt: %s", run_input.prompt)
-
-        available_tools = self.tool_registry.list_tools()
-        logging.info("Found %d available tools", len(available_tools))
-
-        raw_results = self._call_tools(run_input, available_tools)
-        cleaned_outputs = [result.output_text.strip() for result in raw_results]
-        logging.info("Cleaned %d tool outputs", len(cleaned_outputs))
-
-        return AgentRunSummary(
-            prompt=run_input.prompt,
-            cleaned_outputs=cleaned_outputs,
-            status=RunStatus.COMPLETE,
-        )
-
-    def _call_tools(
+    def __call_tools(
         self, run_input: AgentRunInput, tools: list[Tool]
     ) -> list[ToolResult]:
         results = []
@@ -509,6 +492,22 @@ class ToolCallingUseCase:
             else:
                 break
         return results
+
+    def execute(self, run_input: AgentRunInput) -> AgentRunSummary:
+        logging.info("Starting tool calling for prompt: %s", run_input.prompt)
+
+        available_tools = self.tool_registry.list_tools()
+        logging.info("Found %d available tools", len(available_tools))
+
+        raw_results = self.__call_tools(run_input, available_tools)
+        cleaned_outputs = [result.output_text.strip() for result in raw_results]
+        logging.info("Cleaned %d tool outputs", len(cleaned_outputs))
+
+        return AgentRunSummary(
+            prompt=run_input.prompt,
+            cleaned_outputs=cleaned_outputs,
+            status=RunStatus.COMPLETE,
+        )
 ```
 ### 5.2. Composing Use Cases
 
@@ -542,11 +541,11 @@ Adapters wrap infrastructure concerns. Clients wrap external libraries and manag
 ```python
 @dataclass
 class PostgresDatabaseAdapter:
-    _client: PostgresClient
+    __client: PostgresClient
 
     def save_user(self, user: UserDAO) -> None:
         logging.info("Saving user %s to PostgreSQL", user.name)
-        self._client.execute(
+        self.__client.execute(
             "INSERT INTO users (id, name) VALUES (%s, %s)",
             (user.id, user.name),
         )
@@ -554,7 +553,7 @@ class PostgresDatabaseAdapter:
 
     def find_user_by_id(self, user_id: int) -> UserDAO | None:
         logging.info("Looking up user %d", user_id)
-        row = self._client.fetch_one(
+        row = self.__client.fetch_one(
             "SELECT id, name FROM users WHERE id = %s", (user_id,)
         )
         if row is None:
@@ -725,6 +724,30 @@ def mendeley_login(request: Request):
     return RedirectResponse(url=url)
 ```
 
+### 6.5. Type Casting
+
+When you are confident that a value has a specific type but the type checker cannot infer it, use `typing.cast` to make the assertion explicit. Never use `# type: ignore` or bare `Any` as a workaround — `typing.cast` documents the intent and keeps the type system honest.
+
+```python
+import typing
+
+
+# When a dict lookup returns a value you know is a specific type
+raw_config = load_config()
+timeout = typing.cast(int, raw_config["timeout"])
+
+# When narrowing from a base class to a known subclass
+event = get_next_event()
+order_placed = typing.cast(OrderPlacedEvent, event)
+
+# When a third-party library returns Any but the shape is known
+response_data = typing.cast(dict[str, list[str]], api_client.fetch())
+```
+
+### 6.6. Backward Compatibility
+
+Do not worry about backward compatibility. When renaming, removing, or changing an interface, update all call sites directly rather than adding shims, aliases, or deprecation layers. Delete unused code outright — do not leave it behind with comments or `_old` suffixes.
+
 ---
 
 ## 7. Testing Strategy
@@ -830,22 +853,22 @@ class DatabaseConnection:
         ...
 
 
-_db_connection: DatabaseConnection | None = None
+db_connection: DatabaseConnection | None = None
 
 
 def get_database_connection(connection_string: str | None = None) -> DatabaseConnection:
-    global _db_connection
-    if _db_connection is None:
+    global db_connection
+    if db_connection is None:
         if connection_string is None:
             raise RuntimeError("DatabaseConnection has not been initialised. Provide a connection_string.")
-        _db_connection = DatabaseConnection(connection_string=connection_string)
-    return _db_connection
+        db_connection = DatabaseConnection(connection_string=connection_string)
+    return db_connection
 
 
 def reset_database_connection() -> None:
     """For testing: tear down the singleton so the next call re-initialises it."""
-    global _db_connection
-    _db_connection = None
+    global db_connection
+    db_connection = None
 ```
 
 The factory makes initialisation explicit and raises when the singleton is accessed before setup. The `reset` function exists solely for test teardown.
@@ -866,13 +889,13 @@ T = typing.TypeVar("T")
 
 @dataclass
 class EventBus:
-    _handlers: dict[type, list[typing.Callable]] = field(default_factory=dict)
+    __handlers: dict[type, list[typing.Callable]] = field(default_factory=dict)
 
     def subscribe(self, event_type: type[T], handler: typing.Callable[[T], None]) -> None:
-        self._handlers.setdefault(event_type, []).append(handler)
+        self.__handlers.setdefault(event_type, []).append(handler)
 
     def publish(self, event: object) -> None:
-        for handler in self._handlers.get(type(event), []):
+        for handler in self.__handlers.get(type(event), []):
             handler(event)
 
 
@@ -1075,100 +1098,6 @@ services/
             adapters.py
 ```
 
----
-
-## 11. TypeScript
-
-The same core philosophy applies to TypeScript: classes for encapsulation and orchestration, minimal state, domain-language naming. The patterns below supplement the language-agnostic rules above and are derived from production refactoring of use cases.
-
-### 11.1. Class Method Ordering
-
-Declare private arrow-function methods **before** public methods. The public method is the entry point — it reads most clearly when the helpers it calls are already defined above it.
-
-```typescript
-export default class CreateNodeUseCase {
-  private readonly allowedExtensions = new Set([".py", ".csv"]);
-
-  // Private helpers first
-  private extractOutputParams = async (file: File): Promise<Param[]> => { ... };
-
-  private createModelNode = async (file: File): Promise<NodeType> => { ... };
-
-  // Public entry point last
-  createNodeFromFile = async (file: File): Promise<Response> => {
-    // calls the private helpers above
-  };
-}
-```
-
-### 11.2. Inline One-Off Helpers
-
-Do not extract a private method for logic that is used only once and fits in a single expression. Inline it directly at the call site.
-
-```typescript
-// Bad: a two-line private method promoted for a single call site
-private getExtension = (fileName: string) => {
-  return `.${(fileName.split(".").pop() || "").toLowerCase()}`;
-};
-// const extension = this.getExtension(file.name);
-
-// Good: inline the expression
-const extension = `.${(file.name.split(".").pop() || "").toLowerCase()}`;
-```
-
-The same applies to small utility steps (e.g. simple persistence calls): if the logic fits cleanly in the calling method, do not split it out.
-
-### 11.3. Prefer Ternary Over If/Else for Binary Assignment
-
-When two branches produce values assigned to the same variable, use a ternary expression rather than an `if`/`else` block.
-
-```typescript
-// Bad: if/else for a simple assignment
-let node: NodeType;
-if (extension === ".py") {
-  node = await this.createModelNode(file);
-} else {
-  node = await this.createDataSetNode(file);
-}
-
-// Good: ternary expression
-const node = extension === ".py"
-  ? await this.createModelNode(file)
-  : await this.createDataSetNode(file);
-```
-
-### 11.4. Comments and Logging
-
-Add a comment before each logical block describing what you are about to do. Log after contract-changing operations (saves, creates, deletes, external calls).
-
-```typescript
-createNodeFromFile = async (file: File): Promise<CreateNodeResponse> => {
-  // Validate the file and resolve the extension.
-  const extension = `.${(file.name.split(".").pop() || "").toLowerCase()}`;
-  if (!this.allowedExtensions.has(extension)) {
-    throw new Error(`File extension not allowed.`);
-  }
-
-  // Build the node from the file content.
-  const node = extension === ".py"
-    ? await this.createModelNode(file)
-    : await this.createDataSetNode(file);
-
-  // Persist the node to storage.
-  const { error } = await this.fileStorage.CREATE({
-    resourceName: `${node.name}-${node.version}.json`,
-    resourcePath: extension === ".py" ? CardDetail.Model : CardDetail.DataSet,
-    resourceContent: node,
-  });
-  if (error) throw new Error(`Failed to persist node: ${error}`);
-  console.log(`Node persisted: ${node.name}`);
-
-  return { node };
-};
-```
-
----
-
 ### 10.4. Adding New Features
 
 When adding a new feature, start from the end in mind: design the **route or message handler** first (how the feature is triggered and what the response looks like), then the **DTO** (what data crosses the boundary), then the **use case** (what logic orchestrates the feature), then the **adapter** (what infrastructure is needed). This outside-in approach gives you TDD-like benefits — you define the desired interface before building the internals, which prevents over-engineering and keeps the implementation focused on what the consumer actually needs. Reuse existing layers if they are available.
@@ -1200,3 +1129,837 @@ class ProcessRefundUseCase:
 class StripePaymentAdapter:
     def refund(self, transaction_id: str, amount_pence: int) -> RefundResult: ...
 ```
+
+# Frontend
+
+You are a code assistant working in a React + TypeScript codebase.
+## 0. Prime Directive
+
+This codebase uses a simple, event-driven React style:
+
+* Users interact with UI elements (e.g. `onClick`, `onChange`, `onSubmit`).
+* “Dumb” UI components are stateless and **only emit events** upward via props named `onEventXYZ(...)`.
+* “Container” components (page/top level component) are stateful and handle all logic in functions named `handleEventXYZ(...)`.
+* Each Page should have one Container component
+* Each handler does one of two things:
+
+  1. triggers a side-effect (API call, toast, navigation, etc.)
+  2. updates state using small, predictable `setState` patterns.
+
+When using `useReducer` or `xstate`, the page should still be the single container, but UI triggers call `send("event_name", payload)` instead of calling many `handleEventXYZ` functions.
+
+When using react functions and when using libraries in general, try to import the library as follows:
+`import * as React from "react"` this will allow you to access most of its functionality like the following: `React.useState`, `React.useEffect` etc... which I prefer more.
+
+Overall keep React code boring, explicit, and easy to scan.
+
+---
+
+## 1. Project Structure
+
+### 1.1 Stack (typical)
+
+* React + TypeScript
+* TailwindCSS
+* Optional: `useReducer` / `xstate` when truly required
+
+### 1.2 Folder structure (pattern)
+
+* Pages: `src/pages/<page_name>/...` (pages can be recursive)
+* Page components: `src/pages/<page_name>/<PageName>.tsx`
+* Page-local components: `src/pages/<page_name>/components/...`
+* Page-local reducer/machine: `src/pages/<page_name>/state/...`
+* Shared components: `src/components/...`
+
+Rule: **one reducer or one state machine per page** (not shared across multiple pages unless truly generic).
+
+---
+
+## 2. Naming Conventions
+
+### 2.1 Events and handlers
+
+* **UI component prop**: `onEventXYZ(...)`
+* **Page handler**: `handleEventXYZ(...)`
+
+Example:
+
+* Child button: `onClick={() => props.onEventDeleteItem(itemId)}`
+* Page function: `const handleEventDeleteItem = (itemId: string) => { ... }`
+
+### 2.2 Entity-scoped handler grouping
+
+Inside page components, handlers must be grouped by the entity being acted on.
+
+Use headings like:
+
+* `// ------------------------------------------------------ Collection`
+* `// ------------------------------------------------------ Item`
+* `// ------------------------------------------------------ Option`
+
+---
+
+## 3. Page Template (Block Comments + OBSERVE STATE + UTILS)
+
+Use these sections in this order. Keep each section short.
+Block comments MUST have exactly 5 lines. 3-line block comments are categorically forbidden.
+```tsx
+export default function SomePage() {
+  
+  // ====================== //
+  //                        //
+  //   STATE VARIABLES      //
+  //                        //
+  // ====================== //
+  
+  // const [state, setState] = useState()
+  // or [state, send] = useReducer(machine)
+
+  // ====================== //
+  //                        //
+  //   OBSERVE STATE        //
+  //                        //
+  // ====================== //
+  
+  // console.log(...) key states
+
+  // ====================== //
+  //                        //
+  //   SIDE EFFECTS         //
+  //                        //
+  // ====================== //
+  
+  // useEffect(...) only when needed
+
+  // ====================== //
+  //                        //
+  //   UI EVENT HANDLERS    //
+  //                        //
+  // ====================== //
+  
+  // group by entity
+  // ------------------------------------------------------ EntityA
+  // handleEventXYZ(...)
+
+  // ------------------------------------------------------ EntityB
+  // handleEventXYZ(...)
+
+  // ====================== //
+  //                        //
+  //   UTILS METHODS        //
+  //                        //
+  // ====================== //
+  
+  // keep page-local helpers here (inside the component)
+
+  // ====================== //
+  //                        //
+  //   UI COMPONENTS        //
+  //                        //
+  // ====================== //
+  
+  return <div />;
+}
+```
+
+### 3.1 OBSERVE STATE
+
+Keep an “OBSERVE STATE” section near the top of the page component and log the important state variables.
+
+Example:
+
+```ts
+console.log("items", items);
+console.log("selectedCollectionId", selectedCollectionId);
+console.log("hasUnsavedChanges", hasUnsavedChanges);
+```
+
+### 3.2 UI Section Comments
+
+Always add JSX comments to separate major UI regions.
+
+Example:
+
+```tsx
+return (
+  <div>
+    {/* Top bar */}
+
+    {/* Main layout */}
+
+    {/* Sidebar */}
+  </div>
+);
+```
+
+---
+
+## 4. State Management Rules (Simple + Predictable)
+
+### 4.1 Default: `useState`
+
+Prefer `useState` unless the state transitions are genuinely complex.
+
+### 4.2 Allowed `setState` patterns
+
+#### Update an object by field (guard + shallow copy)
+
+```ts
+setItem((prev) => {
+  if (prev.id !== itemId) return prev;
+  return { ...prev, [field]: value };
+});
+```
+
+#### Update an array item (map + guard)
+
+```ts
+setItems((prev) =>
+  prev.map((it) => (it.id !== itemId ? it : { ...it, [field]: value }))
+);
+```
+
+#### Append to an array
+
+```ts
+setItems((prev) => [...prev, newItem]);
+```
+
+#### Replace an object
+
+```ts
+setCollection(newCollection);
+```
+
+#### Delete from an array
+
+```ts
+setItems((prev) => prev.filter((it) => it.id !== itemId));
+```
+
+#### Append into an array field (within an object)
+
+```ts
+setItem((prev) => {
+  if (prev.id !== itemId) return prev;
+  return { ...prev, tags: [...prev.tags, newTag] };
+});
+```
+
+Use more advanced patterns only when strictly necessary.
+
+---
+
+## 5. Dumb UI Components vs Stateful Containers
+
+### 5.1 Dumb UI components
+
+* Stateless (no business state).
+* Render-only.
+* Emit events upward via `onEventXYZ(...)` props.
+
+### 5.2 Container components (pages)
+
+* Own all state for the page.
+* Own all side-effects.
+* Own all event handlers (or `send(...)` when using `useReducer` / `xstate`).
+
+Rule: each page is responsible for its own state. Avoid cross-page shared state unless absolutely required.
+
+### 5.3 Prop Types: Always Inline
+
+Define prop types inline on the component function. Never define a separate `type Props = { ... }` unless that type is explicitly referenced elsewhere in the code (e.g. passed to a utility function or imported by another module).
+
+```tsx
+// CORRECT — inline
+function ItemRow(props: {
+  item: Item;
+  onEventDeleteItem: (itemId: string) => void;
+}) { ... }
+
+// WRONG — separate type that is never referenced elsewhere
+type ItemRowProps = { item: Item; onEventDeleteItem: (itemId: string) => void };
+function ItemRow(props: ItemRowProps) { ... }
+```
+
+### 5.4 Layout and Structure Stay in the Page Component
+
+Rows, groups, grids, and overall structural `div`/`span` wrappers belong in the page component's JSX, not inside dumb child components — unless strictly necessary (e.g. a component that is inherently a row or a card by design).
+
+Keep the skeleton of the layout visible at the page level so the structure is easy to scan.
+
+```tsx
+// CORRECT — structure is in the page
+return (
+  <div className="grid grid-cols-2 gap-4">
+    {items.map((item) => (
+      <ItemCard key={item.id} item={item} onEventSelect={handleEventSelectItem} />
+    ))}
+  </div>
+);
+
+// WRONG — grid is hidden inside ItemCard
+function ItemCard(props: { ... }) {
+  return (
+    <div className="grid grid-cols-2 gap-4"> {/* structural layout belongs in the page */}
+      ...
+    </div>
+  );
+}
+```
+
+---
+
+## 6. Data Access Pattern: `DatabaseInterface`
+
+Use `DatabaseInterface` for backend calls.
+
+Rules:
+
+* Instantiate in the page (or in a small helper hook for that page).
+* Pass generic types to strongly type `result`.
+* Always handle both `{ result }` and `{ error }`.
+* Always log errors with context: `console.log("Error ...:", error)`.
+* Prefer user-visible feedback on failures (toast).
+
+Example:
+
+```ts
+import DatabaseInterface from "../../DatabaseInterface";
+import toastFactory, { MessageSeverity } from "../../components/ToastMessage";
+import * as Schema from "../../schema";
+
+const db = new DatabaseInterface(import.meta.env.VITE_DEV_BACKEND_URL_V1);
+
+db.READ<Schema.QuestionnaireListResponse>("questionnaires").then(
+  ({ result, error }) => {
+    if (result) {
+      setQuestionnaires(result.entities);
+    } else {
+      console.log("Error loading questionnaires:", error);
+      toastFactory("Failed to load questionnaires", MessageSeverity.ERROR);
+    }
+  }
+);
+```
+
+Important Note: DO NOT Create the DatabaseInterface class if you can't find it, I will add it myself
+
+---
+
+## 7. Styling Rules (Tailwind, but simple)
+
+* Prefer plain strings: `className="..."`.
+* Do NOT build Tailwind classes using arrays + `.join(" ")`.
+* For conditionals, use a simple ternary string.
+
+Examples:
+
+```tsx
+<div className="flex items-center gap-2" />
+
+<button className={isActive ? "bg-slate-900 text-white" : "bg-white text-slate-900"} />
+```
+
+---
+
+## 8. Example Pattern: Item Collection (Child Entity)
+
+Default mental model:
+
+* A **Collection** is a named container.
+* An **Item** is a child entity of that collection.
+* Items are rendered by dumb child components.
+* The page is the container.
+
+```tsx
+import * as React from "react";
+
+type Item = { id: string; label: string; done: boolean };
+type ItemCollection = { id: string; name: string; items: Item[] };
+
+function ItemRow(props: {
+  item: Item;
+  onEventToggleDone: (itemId: string) => void;
+  onEventChangeLabel: (itemId: string, label: string) => void;
+  onEventDeleteItem: (itemId: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={props.item.done}
+        onChange={() => props.onEventToggleDone(props.item.id)}
+      />
+      <input
+        className="border rounded px-2 py-1"
+        value={props.item.label}
+        onChange={(e) => props.onEventChangeLabel(props.item.id, e.target.value)}
+      />
+      <button
+        type="button"
+        className="border rounded px-2 py-1"
+        onClick={() => props.onEventDeleteItem(props.item.id)}
+      >
+        Delete
+      </button>
+    </div>
+  );
+}
+
+export default function ItemCollectionPage() {
+  
+  // ====================== //
+  //                        //
+  //   STATE VARIABLES      //
+  //                        //
+  // ====================== //
+
+  const [collection, setCollection] = React.useState<ItemCollection>({
+    id: "col-1",
+    name: "My Collection",
+    items: [],
+  });
+
+  // ====================== //
+  //                        //
+  //   OBSERVE STATE        //
+  //                        //
+  // ====================== //
+
+  console.log("collection", collection);
+
+  // ====================== //
+  //                        //
+  //   UI EVENT HANDLERS    //
+  //                        //
+  // ====================== //
+
+  // ------------------------------------------------------ Collection
+  const handleEventRenameCollection = (name: string) => {
+    setCollection((prev) => ({ ...prev, name }));
+  };
+
+  // ------------------------------------------------------ Item
+  const handleEventAddItem = () => {
+    const newItem: Item = {
+      id: crypto.randomUUID(),
+      label: "New Item",
+      done: false,
+    };
+    setCollection((prev) => ({ ...prev, items: [...prev.items, newItem] }));
+  };
+
+  const handleEventToggleDone = (itemId: string) => {
+    setCollection((prev) => ({
+      ...prev,
+      items: prev.items.map((it) =>
+        it.id !== itemId ? it : { ...it, done: !it.done }
+      ),
+    }));
+  };
+
+  const handleEventChangeLabel = (itemId: string, label: string) => {
+    setCollection((prev) => ({
+      ...prev,
+      items: prev.items.map((it) => (it.id !== itemId ? it : { ...it, label })),
+    }));
+  };
+
+  const handleEventDeleteItem = (itemId: string) => {
+    setCollection((prev) => ({
+      ...prev,
+      items: prev.items.filter((it) => it.id !== itemId),
+    }));
+  };
+
+  // ====================== //
+  //                        //
+  //   UTILS METHODS        //
+  //                        //
+  // ====================== //
+
+  const getDoneCount = () => collection.items.filter((i) => i.done).length;
+
+  // ====================== //
+  //                        //
+  //   UI COMPONENTS        //
+  //                        //
+  // ====================== //
+
+  return (
+    <div className="p-4 space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <input
+          className="border rounded px-2 py-1"
+          value={collection.name}
+          onChange={(e) => handleEventRenameCollection(e.target.value)}
+        />
+        <button
+          type="button"
+          className="border rounded px-3 py-1"
+          onClick={handleEventAddItem}
+        >
+          Add Item
+        </button>
+      </div>
+
+      {/* Summary */}
+      <div className="text-sm text-slate-600">Done: {getDoneCount()}</div>
+
+      {/* Items */}
+      <div className="space-y-2">
+        {collection.items.map((item) => (
+          <ItemRow
+            key={item.id}
+            item={item}
+            onEventToggleDone={handleEventToggleDone}
+            onEventChangeLabel={handleEventChangeLabel}
+            onEventDeleteItem={handleEventDeleteItem}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 9. `useReducer` Pattern (Reducer Outside, Page Uses `send(...)`)
+
+Use `useReducer` when:
+
+* you have multiple event types, and
+* it is cleaner to centralize transitions in a reducer.
+
+Rules:
+
+* Keep the reducer in a separate file under the page folder.
+* The page should not contain dozens of `handleEventXYZ` functions.
+* UI triggers should call `send("event_name", payload)`.
+
+### 9.1 Example: `src/pages/item_collection/state/reducer.ts`
+
+```ts
+export type Item = { id: string; label: string; done: boolean };
+export type ItemCollection = { id: string; name: string; items: Item[] };
+
+export type State = {
+  collection: ItemCollection;
+};
+
+export type PageEvent =
+  | { name: "collection.rename"; payload: { name: string } }
+  | { name: "item.add"; payload: { item: Item } }
+  | { name: "item.toggleDone"; payload: { itemId: string } }
+  | { name: "item.changeLabel"; payload: { itemId: string; label: string } }
+  | { name: "item.delete"; payload: { itemId: string } };
+
+export function reducer(state: State, event: PageEvent): State {
+  switch (event.name) {
+    case "collection.rename":
+      return { ...state, collection: { ...state.collection, name: event.payload.name } };
+
+    case "item.add":
+      return {
+        ...state,
+        collection: {
+          ...state.collection,
+          items: [...state.collection.items, event.payload.item],
+        },
+      };
+
+    case "item.toggleDone":
+      return {
+        ...state,
+        collection: {
+          ...state.collection,
+          items: state.collection.items.map((it) =>
+            it.id !== event.payload.itemId ? it : { ...it, done: !it.done }
+          ),
+        },
+      };
+
+    case "item.changeLabel":
+      return {
+        ...state,
+        collection: {
+          ...state.collection,
+          items: state.collection.items.map((it) =>
+            it.id !== event.payload.itemId ? it : { ...it, label: event.payload.label }
+          ),
+        },
+      };
+
+    case "item.delete":
+      return {
+        ...state,
+        collection: {
+          ...state.collection,
+          items: state.collection.items.filter((it) => it.id !== event.payload.itemId),
+        },
+      };
+
+    default:
+      return state;
+  }
+}
+```
+
+### 9.2 Example Page Usage
+
+```tsx
+import * as React from "react";
+import { reducer, State, PageEvent, Item } from "./state/reducer";
+
+export default function ItemCollectionPage() {
+  const [state, send] = React.useReducer(reducer, {
+    collection: { id: "col-1", name: "My Collection", items: [] },
+  } satisfies State);
+
+  console.log("state", state);
+
+  return (
+    <div>
+      {/* Header */}
+      <input
+        value={state.collection.name}
+        onChange={(e) => send("collection.rename", { name: e.target.value })}
+      />
+
+      {/* Items */}
+      <button
+        type="button"
+        onClick={() => {
+          const newItem: Item = { id: crypto.randomUUID(), label: "New Item", done: false };
+          send("item.add", { item: newItem });
+        }}
+      >
+        Add Item
+      </button>
+    </div>
+  );
+}
+```
+
+---
+
+## 10. `xstate` Pattern (One Machine per Page)
+
+When using `xstate`:
+
+* One machine per page.
+* UI components remain dumb.
+* Page uses `send("event_name", payload)`.
+* Keep side-effects in machine actions/services or in a page-level bridge hook.
+
+---
+
+## 11. Common Code Smells (Avoid)
+
+* Complex state transformations inside JSX event props
+* Business logic inside presentational components
+* Multiple sources of truth for the same data
+* Large `useEffect` blocks that should be a handler or a small helper
+* Multiple reducers/machines fighting over the same page state
+
+# Backend
+
+### 1.1. Technology Stack
+
+- FastAPI for the web framework
+- SQLAlchemy for ORM
+- pydantic for data validation
+
+### 1.2. Software Architecture
+
+- domain folder:
+  - entities: contains the domain entities such as `User`, `Order`, `Inventor`, `Product`,
+    etc..
+    - these can be enforced either through `pydantic.BaseModel` (if there is no SQL database in the application),  or `SQLAlchemy` ORM (this is an opinionated way I prefer to set my entities because I don't like duplicating the class definition)
+      models
+  - messages: contains the domain messages such as `UserCreated`, `OrderPlaced`, etc..
+  - errors: contains the domain errors such as `UserNotFound`, `OrderNotFound`, etc..
+- `use_cases` folder:
+  - contains the use case services for the application such as `create_user`,
+    `place_order`, etc..
+    - the use cases are pure functions that are decoupled from the infrastructure,
+      they transform data transfer objects (DTOs) such as `CreateUserRequest` and
+      `CreateUserResponse`
+    - as such the use cases should never implement adapters or external dependencies,
+      they should only use the domain entities, messages, data transfer objects and
+      interfaces such as ports
+  - contains the schema file which defines the data transfer objects (DTOs) such as
+    `CreateUserRequest` and `CreateUserResponse` using `pydantic.BaseModel`
+- infrastructure folder:
+  - contains the routers for the application such as user_router, order_router, etc..
+  - contains the ports which are interfaces for the application using abstract base
+    classes (ABCs) such as Repository, Connector, etc..
+  - contains the adapters which are implementations of the ports for the application
+    using different technologies such as SQLAlchemy, Redis, etc..
+  - contains other infrastructure components such as auth, logging, and external
+    configuration management, drivers, emails and notifications, etc... as such
+
+### 1.3. Data Flow
+
+dataflow should be unidirectional:
+
+domain -> use_cases -> infrastructure
+
+### 1.4. Example of each layer
+```python
+# domain/entities.py
+import pydantic
+import uuid
+
+class User(pydantic.BaseModel):
+    id: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    email: str
+
+# use_cases/schema.py
+import pydantic
+
+class CreateUserRequest(pydantic.BaseModel):
+    name: str
+    email: str
+
+class CreateUserResponse(pydantic.BaseModel):
+    id: str
+    name: str
+    email: str
+
+# use_cases/use_cases.py
+import domain.entities as entities
+import use_cases.schema as schema
+import infrastructure.ports as ports
+
+def create_user(request:schema.CreateUserRequest, db: ports.Repository) -> schema.CreateUserResponse:
+    user = entities.User(name=request.name, email=request.email)
+    db.add(user)
+    return schema.CreateUserResponse(id=user.id, name=user.name, email=user.email)
+
+# infrastructure/ports.py
+import abc
+import typing
+
+class Repository(abc.ABC):
+    """
+    Abstract base class for repository.
+    """
+
+    @abc.abstractmethod
+    def add(self, entity: typing.Any) -> None:
+        """
+        Add an entity to the repository.
+
+        Parameters
+        ----------
+        entity : Any
+            The entity to add to the repository.
+        """
+        pass
+
+    @abc.abstractmethod
+    def get(self, model_class: type, entity_id: str) -> typing.Any:
+        """
+        Get an entity from the repository by its ID.
+
+        Parameters
+        ----------
+        model_class: type
+	        The type of the entity object.
+        entity_id : str
+            The ID of the entity to get from the repository.
+
+        Returns
+        -------
+        Any
+            The entity from the repository.
+        """
+        pass
+
+# infrastructure/adapters.py
+from sqlalchemy.orm import Session
+import infrastructure.ports as ports
+	
+
+class SQLAlchemyRepositoryAdapter(ports.Repository):
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def add(self, entity):
+        self.session.add(entity)
+        self.session.commit()
+
+    def get(self, model_class, entity_id: str):
+        return self.session.get(model_class, entity_id)
+
+def get_db():
+    """
+    Dependency to get the SQLAlchemy session.
+
+    Returns
+    -------
+    SQLAlchemyRepositoryAdapter
+        An instance of the SQLAlchemyRepositoryAdapter.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine("sqlite:///./test.db")
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = SessionLocal()
+    try:
+        yield SQLAlchemyRepositoryAdapter(db)
+    finally:
+        db.close()
+
+# infrastructure/routers.py
+import fastapi
+import uvicorn 
+import use_cases.schema as schema
+import use_cases.use_cases as use_cases
+import infrastructure.adapters as adapters
+
+app = fastapi.FastAPI()
+
+@app.post("/v1/users/", response_model=schema.CreateUserResponse)
+def create_user(
+    request: schema.CreateUserRequest,
+    db: adapters.SQLAlchemyRepositoryAdapter = fastapi.Depends(adapters.get_db)
+):
+    return use_cases.create_user(request, db)
+
+if __name__ == "__main__":
+    uvicorn.run(app, port=8000)
+```
+
+### 1.5. Implementing Adapters
+
+to implement adapters, first implement the various functions of the external module
+or class in a separate file in the infrastructure folder, i.e. `MendeleyClient` in
+`infrastructure/connectors/mendeley_client.py`, then implement the adapter in a
+separate file in the infrastructure folder, i.e.
+`MendeleyConnectorAdapter(ports.Connector)` in `infrastructure/adapters.py`
+
+or another example: for a payment processor , first implement the payment processor
+client in a separate file in the infrastructure folder, i.e. `StripeClient` in
+`infrastructure/payment_processor/stripe_client.py`, then implement the adapter in a
+separate file in the infrastructure folder, i.e.
+`StripePaymentProcessorAdapter(ports.PaymentProcessor)` in
+`infrastructure/adapters.py`.
+
+### 1.6. Implementing Routers
+
+always add the version to the router path and the resource name in plural i.e.
+`/v1/users/`, `/v1/orders/`, etc.
+
+- the router should only implement the HTTP methods and call the use cases, it should
+  not implement any business logic
+- the router should use the data transfer objects (DTOs) defined in the
+  use_cases/schema.py
+- the router should use the adapters defined in the infrastructure/adapters.py
