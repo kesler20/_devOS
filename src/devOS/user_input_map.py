@@ -22,6 +22,7 @@ credentials_manager = ManageCredentialsUseCase(
     project_structure.home_root.vault, os.getcwd().split(os.sep)
 )
 context_builder = use_cases.AggregateContextUseCase()
+docstrings_formatter = use_cases.GenerateDocstringsUseCase()
 
 
 # ============================== #
@@ -68,6 +69,9 @@ mapper = {
     },
     "ui": {
         "leaf node": run_server.main,
+    },
+    "add": {
+        "docs": {"leaf node": docstrings_formatter.execute},
     },
     "sync": {"leaf node": code_generator.sync_contracts},
     "config": {"leaf node": config_project.set_update_existing_config().execute},

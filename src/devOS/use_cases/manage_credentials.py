@@ -33,7 +33,8 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
     def _generate_masked_env_example(self, dotenv_content: str) -> str:
         """Generate a masked .env.example from .env content.
 
-        Keeps all keys and comments but replaces all values with empty strings.
+        Keeps all keys and comments but replaces values with asterisks matching
+        the original value length.
 
         Parameters
         ----------
@@ -45,17 +46,15 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
         str
             Masked content suitable for .env.example.
         """
-        masked_lines = []
+        lines = []
         for line in dotenv_content.splitlines():
             stripped = line.strip()
-            if stripped.startswith("#") or stripped == "":
-                masked_lines.append(line)
-            elif "=" in line:
-                key = line.split("=", 1)[0]
-                masked_lines.append(f"{key}=")
-            else:
-                masked_lines.append(line)
-        return "\n".join(masked_lines)
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                lines.append(line)
+                continue
+            key, _, value = stripped.partition("=")
+            lines.append(f"{key}={'*' * len(value)}")
+        return "\n".join(lines)
 
     def set_credentials(self, project_name: str):
         """Store project .env in the vault and write a masked .env.example locally.
@@ -112,10 +111,10 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
         File(".env.example").write(dotenv_example_content)
 
     def set_credential(self, key: str, value: str):
-        """Append a key-value pair to the local .env and sync to the vault.
+        """Append a key-value pair to .env and .env.example, then sync to vault.
 
-        Appends ``key=value`` to the project's .env file, then runs the full
-        set_credentials routine so the vault and .env.example are kept in sync.
+        Directly appends the new credential to both local files, then runs the
+        full set_credentials routine to keep the vault in sync.
         The project name is derived from the current working directory name.
 
         Parameters
@@ -125,10 +124,9 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
         value : str
             Environment variable value to add.
         """
-        self.log_message(f"Appending {key} to .env")
-        existing = File(".env").read_as_utf8()
-        updated = existing.rstrip("\n") + f"\n{key}={value}\n"
-        File(".env").write_as_utf8(updated)
+        self.log_message(f"Appending {key} to .env and .env.example")
+        File(".env").append(f"{key}={value}")
+        File(".env.example").append(f"{key}=")
 
         project_name = os.path.basename(os.getcwd())
         self.log_message(f"Syncing credentials for project '{project_name}'")

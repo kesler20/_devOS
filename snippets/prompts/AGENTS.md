@@ -112,6 +112,38 @@ class JobManager: ...
 class DataHandler: ...
 ```
 
+**No leading underscores on module-level names.** Constants, module-level variables, and any name defined at the top of a file must never begin with `_`. Use plain `UPPER_CASE` for constants. The `_` prefix is only valid inside a class body for private methods and private instance attributes (see section 4.1).
+
+```python
+# Good
+ALLOWED_TOOLS = "Read,Write,Edit"
+CLAUDE_WORKING_DIRECTORY = Path(configs.PROTOCOL_FOLDER) / "claude"
+
+# Bad
+_ALLOWED_TOOLS = "Read,Write,Edit"
+_CLAUDE_WORKING_DIRECTORY = Path(configs.PROTOCOL_FOLDER) / "claude"
+```
+
+**Helper logic belongs inside the class, not at module level.** If a function exists only to serve one class, define it as a `__private_method` on that class. Standalone module-level helper functions are only acceptable when they are genuinely reused across multiple classes or modules.
+
+```python
+# Good — helper lives inside the class that uses it
+class AgenticWorkflowUseCase:
+    def __resolve_bash(self, env: dict[str, str]) -> str | None:
+        ...
+
+    def execute(self) -> None:
+        bash = self.__resolve_bash(os.environ.copy())
+
+# Bad — helper exposed at module level just for one class
+def _resolve_bash() -> str | None:
+    ...
+
+class AgenticWorkflowUseCase:
+    def execute(self) -> None:
+        bash = _resolve_bash()
+```
+
 ---
 
 ## 2. Constraining State
