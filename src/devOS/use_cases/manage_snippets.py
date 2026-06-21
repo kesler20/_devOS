@@ -59,6 +59,13 @@ class ManageSnippetsUseCase:
             osi.execute_command("git push")
             print("\nnew commit pushed successfully ✨\n", styled_commit_message)
 
+    def __pull_latest_snippets(self) -> None:
+        with use_cases.OSInterface(self.snippets_repository) as osi:
+            osi.execute_command("git pull")
+
+    def __resolve_snippet_path(self, snippet_source_dir: str) -> str:
+        return os.path.join(self.snippets_repository, *snippet_source_dir.split(","))
+
     def __copy_directory(self, source_dir: str, destination_dir: str) -> list[str]:
         """
         Copy files from a source folder to a destination folder.
@@ -176,28 +183,49 @@ class ManageSnippetsUseCase:
         self,
         from_key: str,
         snippet_source_dir: str,
-        to_key: str,
-        snippet_destination_dir: str,
+        to_key: str | None = None,
+        snippet_destination_dir: str | None = None,
     ):
         """Example usage:
 
+        dev get snippet from snippet_repo_dir,subdir
+
+        dev get snippet from snippet_repo_dir,subdir,snippet_id
+
         dev get snippet from snippet_repo_dir,subdir,snippet_id to clipboard
 
-        or
         dev get snippet from snippet_repo_dir,subdir,snippet_id to path,to,local,snippet.txt
         """
         ignore = from_key
         ignore = to_key
-        # pull the latest changes of the snippets repository.
-        with use_cases.OSInterface(self.snippets_repository) as osi:
-            osi.execute_command("git pull")
 
-        # read the snippet content from the snippet destination.
-        snippet_content = File(
-            self.snippets_repository, *snippet_source_dir.split(",")
-        ).read_as_utf8()
+        self.__pull_latest_snippets()
 
-        # copy the snippet content to the clipboard if no destination is provided.
+        snippet_source_path = self.__resolve_snippet_path(snippet_source_dir)
+
+        if to_key is None and snippet_destination_dir is None:
+            if os.path.isdir(snippet_source_path):
+                self.show_snippets(snippet_source_dir)
+                return
+
+            print(File(snippet_source_path).read_as_utf8())
+            return
+
+        if to_key is None or snippet_destination_dir is None:
+            raise ValueError(
+                "Both to_key and snippet_destination_dir must be provided together."
+            )
+
+        if os.path.isdir(snippet_source_path):
+            if snippet_destination_dir == "clipboard":
+                raise ValueError("clipboard is not supported for folder snippets.")
+
+            destination_dir = os.path.join(*snippet_destination_dir.split(","))
+            self.__copy_directory(snippet_source_path, destination_dir)
+            return
+
+        snippet_content = File(snippet_source_path).read_as_utf8()
+
         if snippet_destination_dir == "clipboard":
             pyperclip.copy(snippet_content)
         else:

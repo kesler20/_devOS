@@ -111,7 +111,8 @@ Snippets are reusable code stored in a **git-backed snippets repository**. Pull/
 snippets with explicit `from`/`to` paths:
 
 ```bash
-dev get snippets
+dev get snippet from python
+dev get snippet from python,sqlalchemy_adapter.py
 dev get snippet from python,sqlalchemy_adapter.py to path,to,local,sqlalchemy_adapter.py
 dev set snippet from path,to,local,adapters.py to python,database-adapters,adapters.py
 ```
@@ -722,13 +723,19 @@ dev-sync write_ralph
 1. **List available snippets:**
 
 ```bash
-dev get snippets
+dev get snippet from python
 ```
 
 2. **Pull snippet into project:**
 
 ```bash
 dev get snippet from python,sqlalchemy_adapter.py to path,to,local,sqlalchemy_adapter.py
+```
+
+To preview a snippet in the terminal instead of copying it:
+
+```bash
+dev get snippet from python,sqlalchemy_adapter.py
 ```
 
 3. **Update snippet from project:**
