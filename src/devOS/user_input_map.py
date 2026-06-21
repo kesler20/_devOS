@@ -58,6 +58,7 @@ mapper = {
     "get": {
         "snippet": {
             "leaf node": snippet_manager.get,
+            "all": {"leaf node": snippet_manager.get_all},
             "folder": {"leaf node": snippet_manager.get_folder},
         },
         "credentials": {"leaf node": credentials_manager.get_credentials},

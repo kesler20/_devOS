@@ -196,8 +196,7 @@ class ManageSnippetsUseCase:
 
         dev get snippet from snippet_repo_dir,subdir,snippet_id to path,to,local,snippet.txt
         """
-        ignore = from_key
-        ignore = to_key
+        ignore = from_key, to_key
 
         self.__pull_latest_snippets()
 
@@ -272,6 +271,10 @@ class ManageSnippetsUseCase:
 
         self.__copy_directory(source_dir, destination_dir)
 
+    def get_all(self) -> None:
+        """List all snippets stored at the repository root."""
+        self.show_snippets()
+
     def delete(
         self,
         snippet_destination_dir: str,
@@ -291,7 +294,12 @@ class ManageSnippetsUseCase:
     def show_snippets(self, path: str | None = None):
         if path is None:
             print(self.snippets_repository)
-            print(os.listdir(self.snippets_repository))
+            root_snippets = sorted(
+                entry
+                for entry in os.listdir(self.snippets_repository)
+                if not entry.startswith(".")
+            )
+            print(root_snippets)
         else:
             print(os.path.join(self.snippets_repository, *path.split(",")))
             print(os.listdir(os.path.join(self.snippets_repository, *path.split(","))))

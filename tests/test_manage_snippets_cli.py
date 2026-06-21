@@ -86,3 +86,26 @@ def test_get_snippet_copies_file_when_destination_is_provided(
     )
 
     assert destination_file.read_text(encoding="utf-8") == "adapter_content = True"
+
+
+def test_get_all_lists_sorted_root_snippets_without_git_metadata(
+    tmp_path, monkeypatch, capsys
+):
+    snippets_repository = tmp_path / "snippets"
+    snippets_repository.mkdir()
+    (snippets_repository / "python").mkdir()
+    (snippets_repository / "prompts").mkdir()
+    (snippets_repository / ".git").mkdir()
+    monkeypatch.setattr(
+        "devOS.use_cases.manage_snippets.use_cases.OSInterface", DummyOSInterface
+    )
+
+    snippet_manager = ManageSnippetsUseCase(str(snippets_repository))
+
+    snippet_manager.get_all()
+
+    captured = capsys.readouterr()
+
+    assert str(snippets_repository) in captured.out
+    assert "['prompts', 'python']" in captured.out
+    assert ".git" not in captured.out
