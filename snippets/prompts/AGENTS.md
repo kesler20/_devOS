@@ -34,6 +34,14 @@ We subscribe to **abstraction**, **composition**, and **encapsulation**. We do n
 
 Every programme starts in a single `main.py` file. Write the core logic directly inside a `main` function. As the routine takes shape, gradually refactor by extracting data classes that you identify within the routine. Once all data classes are identified, add methods for encapsulation following the tell-don't-ask principle. Then organise the remaining orchestration into behavioural classes by converting the `main` function into an `execute` method on a use case class.
 
+**Splitting files.** When `main.py` accumulates too many classes or features, split into sibling files named after the feature they implement (`ingest.py`, `reporting.py`, etc.). Each sibling file can have its own top-level functions that implement that specific feature. Do not jump to a folder structure until individual files are large enough to warrant it (see section 10).
+
+**Converting to a class.** If the `main` function accumulates more than two module-level variables, or the function itself becomes stateful, convert it into a use case class: rename `main` to `execute`, make it a method on the class, and pass the state through the constructor.
+
+**Use case creation threshold.** Before creating a new use case class, check whether the behaviour can be added as a method on an existing use case that shares the same dependencies. Only create a new use case class when it will have three or more methods (including `execute`). A single-method wrapper is premature abstraction.
+
+**Inline short logic.** Code does not need to be fully DRY. If a block of logic is two lines or fewer, write it inline in the method body rather than extracting it into a helper. Reduce the total number of methods; helpers should only be extracted when the logic is complex enough to obscure intent or is genuinely reused.
+
 ```python
 # src/agent_run/main.py
 import logging
@@ -785,6 +793,16 @@ Do not worry about backward compatibility. When renaming, removing, or changing 
 ## 7. Testing Strategy
 
 Write tests when implementing new features or fixing bugs. Only test at the interface between layers — never test internal data classes, ports, or framework boilerplate in isolation.
+
+### 7.0. Three-Pass Development
+
+Implement every feature in three sequential passes. Do not try to satisfy all three passes at once — doing so produces tangled, hard-to-review code.
+
+1. **Tests first.** Write the test cases before (or immediately alongside) the implementation. Think about the feature from the caller's perspective: what inputs go in, what outputs come out, what errors are expected. Get the tests passing. At this stage, the implementation can be messy — the goal is correctness.
+
+2. **Refactor.** Once tests are green, refactor the implementation to comply with the style guide: extract data classes, apply tell-don't-ask, move behaviour into the right layer, clean up naming. Do not change observable behaviour — the tests must remain green throughout.
+
+3. **Style and documentation.** Add logging at boundaries, write any necessary docstrings, add section dividers if the file warrants them. Only add documentation that would genuinely help a future reader; do not document the obvious.
 
 ```
 tests/
