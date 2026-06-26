@@ -151,7 +151,7 @@ Inheriting from an abstract port like `ChatModelPort(ABC)` to implement a concre
 
 ### 2.3. Naming Conventions
 
-Behavioural classes must be named using the abstractions in this guide. The only permitted suffixes are **Adapter**, **UseCase**, and **Client**. Generic names like `handler`, `platform`, `processor`, `engine`, `executor`, `manager`, and `service` are not allowed.
+Behavioural classes must be named using the abstractions in this guide. The only permitted suffixes are **Adapter**, **UseCase**, and **Client**. Generic names like `handler`, `platform`, `processor`, `engine`, `executor`, `manager`, and `service` are not allowed. Use cases represent features of the software and should use language that is understandable in the problem domain.
 
 ```python
 # Good: domain-specific, uses permitted abstractions
@@ -614,7 +614,7 @@ def calc_price(op: float, dp: float) -> float:
 
 ### 5.3. Guard Clauses
 
-When a function has multiple validation paths, use guard clauses at the top to exit early. This avoids deep nesting and makes the happy path immediately visible.
+When a function has multiple validation paths, use guard clauses at the top to exit early. This avoids deep nesting and makes the happy path immediately visible. For simple binary conditions, a single `if`/`else` is acceptable.
 
 ```python
 def process_order(order: Order) -> str:
