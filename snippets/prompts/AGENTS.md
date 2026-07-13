@@ -1233,6 +1233,41 @@ Use headings like:
 
 ## 3. Page Template (Block Comments + OBSERVE STATE + UTILS)
 
+### 3.1 File Header Comment
+
+Every file that exports a page or a component starts with a full-width block comment placed after the imports and before the export. This is separate from the internal section dividers in 3.3 — it documents the file as a whole, not a region within it.
+
+Structure: border, blank line, the name in caps (matching the component/page name), blank line, a 2-4 line description, blank line, border. The description must say two things: what the component renders/does, and where it sits in the app — its relationship to parent/child components, which direction data or events flow, and any spec references (e.g. `PRD §5.2`) if they exist.
+
+```tsx
+// ============================================================ //
+//                                                              //
+//   NODE EDITOR PANEL                                          //
+//                                                              //
+//   Authoring surface for a single policy node (PRD §5.2). The //
+//   body is edited as plain markdown; typed references are     //
+//   parsed live into chips, and a palette inserts new tokens.  //
+//   Edits are emitted upward — the page owns persistence.      //
+//                                                              //
+// ============================================================ //
+```
+
+A page's header additionally states what the page lists/renders and what the primary user actions do (e.g. "Pausing/resuming writes through the API; opening a session routes to the policy editor"). A leaf component's header states what it renders and, if it is not self-contained, how it communicates with its parent (e.g. "Dumb top navigation bar... Routing is the side-effect, so it leans on NavLink rather than emitting events upward").
+
+```tsx
+// ============================================================ //
+//                                                              //
+//   SESSIONS PAGE                                              //
+//                                                              //
+//   Lists agent-loop runs with summary tiles, status filters,  //
+//   and search. Pausing/resuming writes through the API;       //
+//   opening a session routes to the policy editor (PRD §5).    //
+//                                                              //
+// ============================================================ //
+```
+
+### 3.2 Page Body Sections
+
 Use these sections in this order. Keep each section short.
 Block comments MUST have exactly 5 lines. 3-line block comments are categorically forbidden.
 ```tsx
@@ -1294,7 +1329,7 @@ export default function SomePage() {
 }
 ```
 
-### 3.1 OBSERVE STATE
+### 3.3 OBSERVE STATE
 
 Keep an “OBSERVE STATE” section near the top of the page component and log the important state variables.
 
@@ -1306,7 +1341,7 @@ console.log("selectedCollectionId", selectedCollectionId);
 console.log("hasUnsavedChanges", hasUnsavedChanges);
 ```
 
-### 3.2 UI Section Comments
+### 3.4 UI Section Comments
 
 Always add JSX comments to separate major UI regions.
 
