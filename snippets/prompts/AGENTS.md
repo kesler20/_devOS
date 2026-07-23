@@ -2,6 +2,29 @@ Prefer minimal, localised diffs that are easy to review. Reuse existing componen
 
 # Overall Programming
 
+## 0. Before Planning a Change
+
+Before proposing or making any specific change, read this guide, then look at the
+codebase itself: the file being changed and its neighbouring files in the same
+use case / adapter / domain folder (and the folders it composes with). This guide
+sets the general philosophy; the codebase already in front of you is the source of
+truth for how that philosophy has been instantiated here, and it wins whenever the
+two disagree on a codebase-specific detail — an existing name for a domain concept,
+an established file layout, the shape of an existing data class.
+
+Concretely, before finalising a plan:
+
+- Identify the existing use cases, data classes, and adapters that already model
+  the domain the change touches. Reuse or extend them instead of introducing a
+  parallel concept under a new name.
+- Check how neighbouring files in the same domain area name things, structure
+  classes, and split responsibilities, and match that pattern rather than the
+  nearest example in this guide.
+- For a change large enough that this exploration would consume significant
+  context, spin up a sub-agent (or equivalent parallel research step) to read the
+  surrounding files and report back the conventions in use, instead of skipping
+  the check to save time.
+
 ## 1. Overview
 
 This guide defines a programming philosophy built on two core ideas: **data classes** provide encapsulation and **behavioural classes** provide orchestration. Everything else flows from this distinction.
@@ -111,6 +134,12 @@ class EventProcessor: ...
 class JobManager: ...
 class DataHandler: ...
 ```
+
+**No prompt or persona nomenclature.** Never name identifiers, docstrings, or
+comments after a persona, or after the language used to request the change, when
+that term does not itself describe a domain concept. Follow the naming
+conventions already used in the codebase instead, consistent with how it already
+models and represents the domain.
 
 **No leading underscores on module-level names.** Constants, module-level variables, and any name defined at the top of a file must never begin with `_`. Use plain `UPPER_CASE` for constants. The `_` prefix is only valid inside a class body for private methods and private instance attributes (see section 4.1).
 
@@ -303,7 +332,7 @@ def process_order(order: Order) -> str:
 
 ### 3.4. Storing Complex Expressions in Variables
 
-When an expression returns a boolean or truthy value and involves multiple conditions, store the result in a descriptively named variable. This turns opaque logic into readable intent.
+When an expression returns a boolean or truthy value, store the result in a descriptively named variable before using or returning it, even when it is a single condition. This turns opaque logic into readable intent.
 
 ```python
 def calculate_price_if_available(product: Product, quantity: int) -> float | None:
@@ -319,6 +348,20 @@ def calculate_price_if_available(product: Product, quantity: int) -> float | Non
 
     logging.info("Product is not available or price is not set.")
     return None
+```
+
+This applies to return statements too. Never return a raw boolean expression directly.
+
+```python
+# Good: the named variable states what the expression means
+def _is_valid_email(self, value: str) -> bool:
+    is_valid_email = bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value))
+    return is_valid_email
+
+
+# Bad: the caller has to parse the regex to understand the return value
+def _is_valid_email(self, value: str) -> bool:
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value))
 ```
 
 ### 3.5. Nested Functions for Local Extraction
