@@ -332,7 +332,7 @@ def process_order(order: Order) -> str:
 
 ### 3.4. Storing Complex Expressions in Variables
 
-When an expression returns a boolean or truthy value, store the result in a descriptively named variable before using or returning it, even when it is a single condition. This turns opaque logic into readable intent.
+When an expression returns a boolean or truthy value and involves multiple conditions, store the result in a descriptively named variable. This turns opaque logic into readable intent.
 
 ```python
 def calculate_price_if_available(product: Product, quantity: int) -> float | None:
@@ -350,16 +350,22 @@ def calculate_price_if_available(product: Product, quantity: int) -> float | Non
     return None
 ```
 
-This applies to return statements too. Never return a raw boolean expression directly.
+Do not create a helper function whose body is a single-expression return when it has only one caller. Assign the expression to a descriptively named variable directly in the code that uses it — the variable name does the job the function name would have done, without the indirection.
 
 ```python
-# Good: the named variable states what the expression means
-def _is_valid_email(self, value: str) -> bool:
-    is_valid_email = bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value))
-    return is_valid_email
+# Good: the expression lives at its single use site as a named variable
+def _validate_recipients(self, recipients: list[str]) -> list[str]:
+    valid_recipients = []
+    for recipient in recipients:
+        clean_recipient = recipient.strip()
+        is_valid_email = bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", clean_recipient))
+        if not is_valid_email:
+            raise ValueError(f"Invalid recipient email address: {clean_recipient}")
+        valid_recipients.append(clean_recipient)
+    return valid_recipients
 
 
-# Bad: the caller has to parse the regex to understand the return value
+# Bad: a one-line helper that only _validate_recipients ever calls
 def _is_valid_email(self, value: str) -> bool:
     return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value))
 ```
