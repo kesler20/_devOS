@@ -1881,6 +1881,19 @@ When using `xstate`:
 * Large `useEffect` blocks that should be a handler or a small helper
 * Multiple reducers/machines fighting over the same page state
 
+## 12. No Unsolicited UI Copy
+
+Do not add explanatory hint text, status captions, or helper descriptions next to a UI element unless specifically asked for. A control should be self-evident from its own label or icon; don't pair it with a sentence describing what it does or what state it's in.
+
+```tsx
+// WRONG — hint text nobody asked for
+<p>Active diet: {activeDiet.name} {activeDiet.finalizedAt ? "(finalized)" : "(not finalized)"}</p>
+<Button onClick={finalizeDiet}>Finalize Diet</Button>
+
+// CORRECT — the control speaks for itself
+<Switch checked={isActive} onChange={handleEventToggle} />
+```
+
 # Backend
 
 ### 1.1. Technology Stack

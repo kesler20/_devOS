@@ -820,7 +820,7 @@ class PrefectWorkflowEngineAdapter:
                 # Send an email notification with the exception details
                 self.send_email_notification(
                     f"Your job {task.name} entered {state.name} State",
-                    f"""See https://{configs.PrefectConfigsCreds.PREFECT_API_URL.value}/task-runs/{task_run.id}
+                    f"""See https://{configs.PrefectConfigsCreds.PREFECT_API_URL.value}/runs/task-run/{task_run.id}
 Version: {task.version}
 Run Name: {task_run.name}
                 """,
