@@ -4,6 +4,7 @@ import json
 import re
 import subprocess
 import os
+import sys
 import time
 import colorama  # type: ignore
 
@@ -69,9 +70,20 @@ class OSInterface:
             msg = f"\n{emoji} | {self.directory} - {message} \n"
 
         if error:
-            print(f"{colorama.Fore.RED}{msg}{colorama.Style.RESET_ALL}")
+            self.__print_message(f"{colorama.Fore.RED}{msg}{colorama.Style.RESET_ALL}")
         else:
-            print(msg)
+            self.__print_message(msg)
+
+    def __print_message(self, message: str) -> None:
+        try:
+            print(message)
+        except UnicodeEncodeError:
+            stdout_encoding = sys.stdout.encoding or "utf-8"
+            safe_message = message.encode(
+                stdout_encoding,
+                errors="replace",
+            ).decode(stdout_encoding)
+            print(safe_message)
 
     def execute_command(self, command: str, error: bool = False) -> None:
         """Execute a command using `os.system`.

@@ -35,7 +35,7 @@ class File:
 
         if len(relative_path) > 0:
             filename = Path(os.path.join(filename, *relative_path))
-        
+
         self.filename = filename.as_posix()  # type: ignore
 
     def _ensure_parent_dirs(self) -> None:

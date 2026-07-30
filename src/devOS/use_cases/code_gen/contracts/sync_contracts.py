@@ -145,12 +145,9 @@ class SyncContractsUseCase:
                 or "Schema = z.enum([" in translated_code
             )
         if source_language == "typescript":
-            return (
-                "class " in translated_code
-                and (
-                    "(pydantic.BaseModel):" in translated_code
-                    or "(str, enum.Enum):" in translated_code
-                )
+            return "class " in translated_code and (
+                "(pydantic.BaseModel):" in translated_code
+                or "(str, enum.Enum):" in translated_code
             )
         return False
 
@@ -168,9 +165,7 @@ class SyncContractsUseCase:
 
         for class_name, members in enum_specs:
             members_str = ", ".join(f"'{m}'" for m in members)
-            lines.append(
-                f"export const {class_name}Schema = z.enum([{members_str}]);"
-            )
+            lines.append(f"export const {class_name}Schema = z.enum([{members_str}]);")
             lines.append(
                 f"export type {class_name} = z.infer<typeof {class_name}Schema>;"
             )

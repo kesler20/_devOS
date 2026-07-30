@@ -46,6 +46,7 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 """
 
+
 def generate_crud_endpoints_for_dao(
     dao_spec: entities.DAOSchemaSpec, version: str = "v1"
 ) -> str:

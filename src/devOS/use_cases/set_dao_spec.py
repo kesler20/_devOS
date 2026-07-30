@@ -675,14 +675,14 @@ def _sanitize_many_to_many_dict(
 # ============================== #
 
 
-_ROW_HANDLE_RE = re.compile(r"row[-_:](\d+)", re.IGNORECASE)
+ROW_HANDLE_RE = re.compile(r"row[-_:](\d+)", re.IGNORECASE)
 
 
 def _parse_row_handle_index(handle: typing.Optional[str]) -> typing.Optional[int]:
     if not handle:
         return None
 
-    match = _ROW_HANDLE_RE.search(handle)
+    match = ROW_HANDLE_RE.search(handle)
     if not match:
         return None
 

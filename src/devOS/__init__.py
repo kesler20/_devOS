@@ -180,6 +180,14 @@ def traverse_command_mapper(
 
 
 def main():
+    # Windows consoles default to a legacy codec (cp1252) that can't encode
+    # the emoji this CLI prints in commit/push messages; force UTF-8 so those
+    # prints don't crash the command that already succeeded.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     # Run the CLI.
     traverse_command_mapper(sys.argv[1:])
 
