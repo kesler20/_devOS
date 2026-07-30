@@ -1,4 +1,4 @@
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 import devOS.domain.entities as entities
 import devOS.use_cases.utils.codegen_helpers as codegen_utils
 
@@ -287,23 +287,23 @@ class {pascal}Response(pydantic.BaseModel):
 
 
 def main():
-    endpoints_raw = File("tests", "specs", "endpoints_spec.json").get_json()
+    endpoints_raw = file_io.File("tests", "specs", "endpoints_spec.json").get_json()
     endpoints_spec = entities.EndpointsSpec.model_validate(endpoints_raw)
 
-    dao_raw = File("tests", "specs", "dao_spec.json").get_json()
+    dao_raw = file_io.File("tests", "specs", "dao_spec.json").get_json()
     dao_specs = [entities.DAOSchemaSpec.model_validate(d) for d in dao_raw]
 
     # Generate Write/Read DTOs from DAO specs
     dao_dtos_code = generate_dao_dtos_file(dao_specs)
     print("DAO DTOs code generated:\n")
     print(dao_dtos_code)
-    File("tests", "devOS", "dao_dto.py").write(dao_dtos_code)
+    file_io.File("tests", "devOS", "dao_dto.py").write(dao_dtos_code)
 
     # Generate custom endpoint DTOs from endpoint specs
     schema_code = generate_dto_code(endpoints_spec, dao_specs)
     print("Custom endpoint DTOs code generated:\n")
     print(schema_code)
-    File("tests", "devOS", "generated_schema.py").write(schema_code)
+    file_io.File("tests", "devOS", "generated_schema.py").write(schema_code)
 
 
 if __name__ == "__main__":

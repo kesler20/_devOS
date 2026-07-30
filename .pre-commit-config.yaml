@@ -40,13 +40,6 @@ repos:
   # -----------------------
   - repo: local
     hooks:
-      - id: web-format
-        name: web-format (prettier)
-        entry: bash -lc "pnpm prettier:write"
-        language: system
-        files: ^src/.*\.(ts|tsx|js|jsx|json|css|scss|md|yaml|yml)$
-        pass_filenames: false
-
       - id: web-typecheck
         name: web-typecheck (tsc)
         entry: bash -lc "pnpm typecheck"

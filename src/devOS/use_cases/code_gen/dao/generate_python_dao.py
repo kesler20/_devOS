@@ -1,4 +1,4 @@
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 import typing
 import devOS.domain.entities as entities
 
@@ -463,7 +463,7 @@ class Base(sqlalchemy.orm.DeclarativeBase):
 
 
 def main():
-    raw_specs = File("src", "devOS", "dao_spec.json").get_json()
+    raw_specs = file_io.File("src", "devOS", "dao_spec.json").get_json()
     specs = [entities.DAOSchemaSpec.model_validate(raw_spec) for raw_spec in raw_specs]
 
     final_code = generate_code_header()
@@ -477,12 +477,12 @@ def main():
     for spec in specs:
         final_code += generate_dao_code(spec) + "\n"
 
-    File("src", "devOS", "generated_dao.py").write(final_code)
+    file_io.File("src", "devOS", "generated_dao.py").write(final_code)
 
     # generate association_dao.py
     assoc_code = generate_association_dao_header()
     assoc_code += generate_all_association_tables(specs)
-    File("src", "devOS", "association_dao.py").write(assoc_code)
+    file_io.File("src", "devOS", "association_dao.py").write(assoc_code)
 
 
 if __name__ == "__main__":

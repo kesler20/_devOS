@@ -1,4 +1,4 @@
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 import os
 import pyperclip  # type: ignore
 from devOS.use_cases import use_cases
@@ -69,23 +69,23 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
             Project name used to namespace stored files.
         """
         self.log_message(f"Reading .env from {self.directory}")
-        dotenv_content = File(".env").read_as_utf8()
+        dotenv_content = file_io.File(".env").read_as_utf8()
 
         dotenv_example_content = self._generate_masked_env_example(dotenv_content)
 
         self.log_message("Writing masked .env.example to project directory")
-        File(".env.example").write_as_utf8(dotenv_example_content)
+        file_io.File(".env.example").write_as_utf8(dotenv_example_content)
 
         self.log_message(
             f"Writing .env to vault at {os.path.join(self.vault_dir, project_name, f'dotenv_{project_name}.txt')}"
         )
-        File(
+        file_io.File(
             self.vault_dir, "dotenv", project_name, f"dotenv_{project_name}.txt"
         ).write(dotenv_content)
         self.log_message(
             f"Writing .env.example to vault at {os.path.join(self.vault_dir, project_name, f'dotenv_example_{project_name}.txt')}"
         )
-        File(
+        file_io.File(
             self.vault_dir, "dotenv", project_name, f"dotenv_example_{project_name}.txt"
         ).write(dotenv_example_content)
 
@@ -98,17 +98,17 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
             Project name used to locate stored files.
         """
         self.log_message(f"Reading credentials from vault for project '{project_name}'")
-        dotenv_content = File(
+        dotenv_content = file_io.File(
             self.vault_dir, "dotenv", project_name, f"dotenv_{project_name}.txt"
         ).read_as_utf8()
-        dotenv_example_content = File(
+        dotenv_example_content = file_io.File(
             self.vault_dir, "dotenv", project_name, f"dotenv_example_{project_name}.txt"
         ).read_as_utf8()
 
         self.log_message(f"Writing .env to {self.directory}")
-        File(".env").write(dotenv_content)
+        file_io.File(".env").write(dotenv_content)
         self.log_message(f"Writing .env.example to {self.directory}")
-        File(".env.example").write(dotenv_example_content)
+        file_io.File(".env.example").write(dotenv_example_content)
 
     def set_credential(self, key: str, value: str):
         """Append a key-value pair to .env and .env.example, then sync to vault.
@@ -125,8 +125,8 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
             Environment variable value to add.
         """
         self.log_message(f"Appending {key} to .env and .env.example")
-        File(".env").append(f"{key}={value}")
-        File(".env.example").append(f"{key}=")
+        file_io.File(".env").append(f"{key}={value}")
+        file_io.File(".env.example").append(f"{key}=")
 
         project_name = os.path.basename(os.getcwd())
         self.log_message(f"Syncing credentials for project '{project_name}'")
@@ -145,9 +145,9 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
         self.log_message(
             f"Writing global secret '{secret_key}' to vault at {os.path.join(self.vault_dir, f'global_secret_{secret_key}.txt')}"
         )
-        File(self.vault_dir, "secrets", f"global_secret_{secret_key}.txt").write(
-            secret_value
-        )
+        file_io.File(
+            self.vault_dir, "secrets", f"global_secret_{secret_key}.txt"
+        ).write(secret_value)
 
     def get_global_secret(self, secret_key: str):
         """Retrieve a global secret and copy it to the clipboard.
@@ -160,7 +160,7 @@ class ManageCredentialsUseCase(use_cases.OSInterface):
         self.log_message(
             f"Reading global secret '{secret_key}' from vault at {os.path.join(self.vault_dir, f'global_secret_{secret_key}.txt')}"
         )
-        secret = File(
+        secret = file_io.File(
             self.vault_dir, "secrets", f"global_secret_{secret_key}.txt"
         ).read_as_utf8()
         self.log_message(f"Secret value: {secret}")

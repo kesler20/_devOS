@@ -1,5 +1,5 @@
 from __future__ import annotations
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 import typing
 import ast
 from pydantic import BaseModel
@@ -331,13 +331,15 @@ class GenerateTestsUseCase:
 
 def main():
     generator = GenerateTestsUseCase()
-    code = File("tests", "devOS", "generated_endpoints.py").read()
+    code = file_io.File("tests", "devOS", "generated_endpoints.py").read()
     print("Generating tests for generated_endpoints.py...")
     print(code)
     result = generator.generate_tests_for_file(code, file_type="endpoint")
     print("Generated test code:")
     print(result)
-    File("tests", "generated_tests", "test_generated_endpoints.py").write(result or "")
+    file_io.File("tests", "generated_tests", "test_generated_endpoints.py").write(
+        result or ""
+    )
 
 
 if __name__ == "__main__":

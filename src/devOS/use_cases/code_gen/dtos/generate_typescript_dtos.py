@@ -1,4 +1,4 @@
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 import devOS.domain.entities as entities
 import devOS.use_cases.utils.codegen_helpers as codegen_utils
 
@@ -164,9 +164,9 @@ def generate_custom_endpoint_schemas(endpoints_spec: entities.EndpointsSpec) -> 
 
 
 def main():
-    endpoints_raw = File("tests", "specs", "endpoints_spec.json").get_json()
+    endpoints_raw = file_io.File("tests", "specs", "endpoints_spec.json").get_json()
     endpoints_spec = entities.EndpointsSpec.model_validate(endpoints_raw)
-    dao_raw = File("tests", "specs", "dao_spec.json").get_json()
+    dao_raw = file_io.File("tests", "specs", "dao_spec.json").get_json()
     dao_specs = [entities.DAOSchemaSpec.model_validate(d) for d in dao_raw]
 
     code = "import { z } from 'zod';\n\n"
@@ -178,7 +178,7 @@ def main():
 
     print("TypeScript DTO code generated:\n")
     print(code)
-    File("tests", "devOS", "generated_schema.ts").write(code)
+    file_io.File("tests", "devOS", "generated_schema.ts").write(code)
 
 
 if __name__ == "__main__":

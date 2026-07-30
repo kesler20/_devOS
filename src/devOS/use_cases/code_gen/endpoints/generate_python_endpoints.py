@@ -1,5 +1,5 @@
 from __future__ import annotations
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 import devOS.domain.entities as entities
 import devOS.use_cases.utils.codegen_helpers as codegen_utils
 
@@ -315,21 +315,21 @@ from fastapi.responses import FileResponse
 
 
 def main():
-    endpoints_raw = File("tests", "specs", "endpoints_spec.json").get_json()
+    endpoints_raw = file_io.File("tests", "specs", "endpoints_spec.json").get_json()
     endpoints_spec = entities.EndpointsSpec.model_validate(endpoints_raw)
 
-    dao_raw = File("tests", "specs", "dao_spec.json").get_json()
+    dao_raw = file_io.File("tests", "specs", "dao_spec.json").get_json()
     dao_specs = [entities.DAOSchemaSpec.model_validate(d) for d in dao_raw]
 
     # Generate CRUD endpoints from DAO specs
     crud_endpoints_code = generate_crud_endpoints_file(dao_specs)
     print("Generated CRUD Endpoints Code:\n", crud_endpoints_code)
-    File("tests", "devOS", "crud_endpoints.py").write(crud_endpoints_code)
+    file_io.File("tests", "devOS", "crud_endpoints.py").write(crud_endpoints_code)
 
     # Generate custom endpoints from endpoint specs
     endpoints_code = generate_endpoints_code(endpoints_spec, dao_specs)
     print("Generated Custom Endpoints Code:\n", endpoints_code)
-    File("tests", "devOS", "generated_endpoints.py").write(endpoints_code)
+    file_io.File("tests", "devOS", "generated_endpoints.py").write(endpoints_code)
 
 
 if __name__ == "__main__":

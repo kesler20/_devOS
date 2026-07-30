@@ -5,7 +5,7 @@ import re
 import typing
 import pydantic
 from devOS.domain import entities
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,15 @@ def convert_dao_spec_to_reactflow(
     (nodes, edges)
         ReactFlow-ready nodes and edges as plain dictionaries.
     """
-    specs = [_validate_spec(s) for s in dao_spec]
+
+    def validate_spec(
+        spec: dict[str, typing.Any] | entities.DAOSchemaSpec,
+    ) -> entities.DAOSchemaSpec:
+        if isinstance(spec, entities.DAOSchemaSpec):
+            return spec
+        return entities.DAOSchemaSpec.model_validate(spec)
+
+    specs = [validate_spec(s) for s in dao_spec]
 
     converter = _DaoSpecToReactFlowConverter(
         include_foreign_key_edges=include_foreign_key_edges,
@@ -177,7 +185,17 @@ class _DaoSpecToReactFlowConverter:
         if node_id in self._saved_positions:
             pos = self._saved_positions[node_id]
             return ReactFlowPosition(x=pos.get("x", 0.0), y=pos.get("y", 0.0))
-        return _default_position(fallback_index)
+        return self.__default_position(fallback_index)
+
+    def __default_position(self, index: int) -> ReactFlowPosition:
+        column_count = 3
+        x_spacing = 900.0
+        y_spacing = 450.0
+
+        col = index % column_count
+        row = index // column_count
+
+        return ReactFlowPosition(x=200.0 + col * x_spacing, y=200.0 + row * y_spacing)
 
     def convert(
         self,
@@ -204,7 +222,7 @@ class _DaoSpecToReactFlowConverter:
             if not spec.association_tables:
                 continue
             for assoc_table in spec.association_tables:
-                class_name = assoc_table.class_name or _convert_to_pascal(
+                class_name = assoc_table.class_name or self.__convert_to_pascal(
                     assoc_table.table_name
                 )
                 if class_name in node_ids_by_class_name:
@@ -228,7 +246,7 @@ class _DaoSpecToReactFlowConverter:
                     f"  Created association table node: {class_name} ({assoc_table.table_name})"
                 )
 
-        property_index = _build_property_index(nodes)
+        property_index = self.__build_property_index(nodes)
 
         edges: list[ReactFlowEdge] = []
         edges_by_key: dict[tuple[str, int, str, int], ReactFlowEdge] = {}
@@ -288,7 +306,7 @@ class _DaoSpecToReactFlowConverter:
                 # - The "object" side (child referencing parent) should be the target
                 # Look up the other side's property to compare types
                 right_spec = specs_by_class_name[right_class_name]
-                right_prop = _find_property_by_name(right_spec, right_prop_name)
+                right_prop = self.__find_property_by_name(right_spec, right_prop_name)
 
                 left_type = (prop.type or "").lower()
                 right_type = (right_prop.type if right_prop else "").lower()
@@ -311,7 +329,7 @@ class _DaoSpecToReactFlowConverter:
 
                 source_handle = f"row-{source_idx}"
                 target_handle = f"row-{target_idx}"
-                edge_id = _edge_id(
+                edge_id = self.__edge_id(
                     source_node_id, source_handle, target_node_id, target_handle
                 )
 
@@ -335,7 +353,7 @@ class _DaoSpecToReactFlowConverter:
             assoc_table_node_ids=assoc_table_node_ids,
         )
         for edge in assoc_edges:
-            key = _edge_key(edge)
+            key = self.__edge_key(edge)
             if key in edges_by_key:
                 continue
             edges_by_key[key] = edge
@@ -350,7 +368,7 @@ class _DaoSpecToReactFlowConverter:
                 property_index=property_index,
             )
             for edge in fk_edges:
-                key = _edge_key(edge)
+                key = self.__edge_key(edge)
                 if key in edges_by_key:
                     continue
                 edges_by_key[key] = edge
@@ -400,14 +418,14 @@ class _DaoSpecToReactFlowConverter:
                     if not referenced_node_id:
                         continue
 
-                    pk_prop = _find_primary_key_property(referenced_spec)
+                    pk_prop = self.__find_primary_key_property(referenced_spec)
                     pk_idx = property_index.get((referenced_node_id, pk_prop.name))
                     if pk_idx is None:
                         continue
 
                     source_handle = f"row-{col_idx}"
                     target_handle = f"row-{pk_idx}"
-                    edge_id = _edge_id(
+                    edge_id = self.__edge_id(
                         assoc_node_id, source_handle, referenced_node_id, target_handle
                     )
 
@@ -429,7 +447,7 @@ class _DaoSpecToReactFlowConverter:
     def _make_node(
         self, *, node_id: str, spec: entities.DAOSchemaSpec, position: ReactFlowPosition
     ) -> ReactFlowNode:
-        color = _stable_color(spec.name)
+        color = self.__stable_color(spec.name)
         rows = [self._make_row(p) for p in spec.properties]
 
         data = ReactFlowORMNodeData(
@@ -445,7 +463,7 @@ class _DaoSpecToReactFlowConverter:
         )
 
         width = 600
-        height = _node_height(len(rows))
+        height = self.__node_height(len(rows))
 
         node = ReactFlowNode(
             id=node_id,
@@ -468,8 +486,8 @@ class _DaoSpecToReactFlowConverter:
         position: ReactFlowPosition,
     ) -> ReactFlowNode:
         """Create a ReactFlow node for an association table."""
-        color = _stable_color(assoc_table.table_name)
-        class_name = assoc_table.class_name or _convert_to_pascal(
+        color = self.__stable_color(assoc_table.table_name)
+        class_name = assoc_table.class_name or self.__convert_to_pascal(
             assoc_table.table_name
         )
 
@@ -514,7 +532,7 @@ class _DaoSpecToReactFlowConverter:
         )
 
         width = 600
-        height = _node_height(len(rows))
+        height = self.__node_height(len(rows))
 
         return ReactFlowNode(
             id=node_id,
@@ -606,7 +624,7 @@ class _DaoSpecToReactFlowConverter:
                 if fk_idx is None:
                     continue
 
-                pk_prop = _find_primary_key_property(referenced_spec)
+                pk_prop = self.__find_primary_key_property(referenced_spec)
                 referenced_node_id = node_ids_by_class_name[referenced_spec.name]
                 pk_idx = property_index.get((referenced_node_id, pk_prop.name))
                 if pk_idx is None:
@@ -620,7 +638,7 @@ class _DaoSpecToReactFlowConverter:
 
                 source_handle = f"row-{source_idx}"
                 target_handle = f"row-{target_idx}"
-                edge_id = _edge_id(
+                edge_id = self.__edge_id(
                     source_node_id, source_handle, target_node_id, target_handle
                 )
 
@@ -636,95 +654,65 @@ class _DaoSpecToReactFlowConverter:
 
         return edges
 
+    def __convert_to_pascal(self, name: str) -> str:
+        """Convert snake_case or kebab-case to PascalCase."""
+        parts = [p for p in name.replace("-", "_").split("_") if p]
+        return "".join(p[:1].upper() + p[1:] for p in parts)
 
-# ============================== #
-#                                #
-#   Helpers                      #
-#                                #
-# ============================== #
+    def __node_height(self, row_count: int) -> int:
+        return int(83 + 54 * row_count)
 
+    def __edge_id(
+        self, source: str, source_handle: str, target: str, target_handle: str
+    ) -> str:
+        return f"reactflow__edge-{source}{source_handle}-{target}{target_handle}"
 
-def _validate_spec(
-    spec: dict[str, typing.Any] | entities.DAOSchemaSpec
-) -> entities.DAOSchemaSpec:
-    if isinstance(spec, entities.DAOSchemaSpec):
-        return spec
-    return entities.DAOSchemaSpec.model_validate(spec)
+    def __edge_key(self, edge: ReactFlowEdge) -> tuple[str, int, str, int]:
+        source_idx = int(edge.sourceHandle.split("-", 1)[1])
+        target_idx = int(edge.targetHandle.split("-", 1)[1])
+        a = (edge.source, source_idx)
+        b = (edge.target, target_idx)
+        (n1, i1), (n2, i2) = sorted([a, b])
+        return (n1, i1, n2, i2)
 
+    def __build_property_index(
+        self, nodes: list[ReactFlowNode]
+    ) -> dict[tuple[str, str], int]:
+        index: dict[tuple[str, str], int] = {}
+        for n in nodes:
+            for i, p in enumerate(n.data.properties):
+                index[(n.id, p.name)] = i
+        return index
 
-def _default_position(index: int) -> ReactFlowPosition:
-    column_count = 3
-    x_spacing = 900.0
-    y_spacing = 450.0
+    def __find_property_by_name(
+        self, spec: entities.DAOSchemaSpec, prop_name: str
+    ) -> typing.Optional[entities.DAOSchemaProperty]:
+        for p in spec.properties:
+            if p.name == prop_name:
+                return p
+        return None
 
-    col = index % column_count
-    row = index // column_count
+    def __find_primary_key_property(
+        self, spec: entities.DAOSchemaSpec
+    ) -> entities.DAOSchemaProperty:
+        for p in spec.properties:
+            if p.key_type is not None and p.key_type.type == "primary_key":
+                return p
+        for p in spec.properties:
+            if p.name == "id":
+                return p
+        return spec.properties[0]
 
-    return ReactFlowPosition(x=200.0 + col * x_spacing, y=200.0 + row * y_spacing)
-
-
-def _convert_to_pascal(name: str) -> str:
-    """Convert snake_case or kebab-case to PascalCase."""
-    parts = [p for p in name.replace("-", "_").split("_") if p]
-    return "".join(p[:1].upper() + p[1:] for p in parts)
-
-
-def _node_height(row_count: int) -> int:
-    return int(83 + 54 * row_count)
-
-
-def _edge_id(source: str, source_handle: str, target: str, target_handle: str) -> str:
-    return f"reactflow__edge-{source}{source_handle}-{target}{target_handle}"
-
-
-def _edge_key(edge: ReactFlowEdge) -> tuple[str, int, str, int]:
-    source_idx = int(edge.sourceHandle.split("-", 1)[1])
-    target_idx = int(edge.targetHandle.split("-", 1)[1])
-    a = (edge.source, source_idx)
-    b = (edge.target, target_idx)
-    (n1, i1), (n2, i2) = sorted([a, b])
-    return (n1, i1, n2, i2)
-
-
-def _build_property_index(nodes: list[ReactFlowNode]) -> dict[tuple[str, str], int]:
-    index: dict[tuple[str, str], int] = {}
-    for n in nodes:
-        for i, p in enumerate(n.data.properties):
-            index[(n.id, p.name)] = i
-    return index
-
-
-def _find_property_by_name(
-    spec: entities.DAOSchemaSpec, prop_name: str
-) -> typing.Optional[entities.DAOSchemaProperty]:
-    for p in spec.properties:
-        if p.name == prop_name:
-            return p
-    return None
-
-
-def _find_primary_key_property(
-    spec: entities.DAOSchemaSpec,
-) -> entities.DAOSchemaProperty:
-    for p in spec.properties:
-        if p.key_type is not None and p.key_type.type == "primary_key":
-            return p
-    for p in spec.properties:
-        if p.name == "id":
-            return p
-    return spec.properties[0]
-
-
-def _stable_color(seed: str) -> str:
-    digest = hashlib.md5(seed.encode("utf-8")).digest()
-    r = 40 + digest[0] % 180
-    g = 40 + digest[1] % 180
-    b = 40 + digest[2] % 180
-    return f"rgb({r}, {g}, {b})"
+    def __stable_color(self, seed: str) -> str:
+        digest = hashlib.md5(seed.encode("utf-8")).digest()
+        r = 40 + digest[0] % 180
+        g = 40 + digest[1] % 180
+        b = 40 + digest[2] % 180
+        return f"rgb({r}, {g}, {b})"
 
 
 if __name__ == "__main__":
-    dao_example = File("tests", "test_specs", "dao_spec.json").get_json()
+    dao_example = file_io.File("tests", "test_specs", "dao_spec.json").get_json()
     nodes, edges = convert_dao_spec_to_reactflow(dao_example)  # type: ignore
     print("Nodes:")
     for n in nodes:

@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware import cors
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 from devOS.use_cases.manage_git_repo import ManageGitRepositoryUseCase
 from devOS.use_cases.read_dao_spec import convert_dao_spec_to_reactflow
 from devOS.use_cases.set_dao_spec import build_dao_spec
@@ -23,7 +23,7 @@ class ReactFlowRequest(BaseModel):
 
 def _load_saved_positions() -> dict[str, dict[str, float]]:
     """Load saved node positions from the layout file."""
-    layout_file = File("specs", "dao_layout.json")
+    layout_file = file_io.File("specs", "dao_layout.json")
     if not layout_file.exists():
         return {}
     try:
@@ -44,7 +44,7 @@ def _save_positions(nodes: list[dict[str, typing.Any]]) -> None:
                 "x": float(position.get("x", 0)),
                 "y": float(position.get("y", 0)),
             }
-    File("specs", "dao_layout.json").write_json({"positions": positions})
+    file_io.File("specs", "dao_layout.json").write_json({"positions": positions})
 
 
 # =========================#
@@ -75,7 +75,7 @@ async def read_root():
 
 @app.get("/dao", response_model=ReactFlowRequest)
 def get_dao():
-    dao_example = File("specs", "dao_spec.json").get_json()
+    dao_example = file_io.File("specs", "dao_spec.json").get_json()
     saved_positions = _load_saved_positions()
     nodes, edges = convert_dao_spec_to_reactflow(
         dao_example,  # type: ignore
@@ -89,7 +89,9 @@ def post_dao(request: ReactFlowRequest):
     print("Saving DAO spec and layout positions...")
     _save_positions(request.nodes)
     specs = build_dao_spec(request.nodes, request.edges)  # type: ignore
-    File("specs", "dao_spec.json").write_json([spec.model_dump() for spec in specs])
+    file_io.File("specs", "dao_spec.json").write_json(
+        [spec.model_dump() for spec in specs]
+    )
     return dict(status="success", count=len(specs))
 
 

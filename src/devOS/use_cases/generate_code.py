@@ -4,7 +4,7 @@ import devOS.use_cases.code_gen.dtos.generate_typescript_dtos as ts_dto_gen
 import devOS.use_cases.code_gen.endpoints.generate_python_endpoints as py_endpoint_gen
 import devOS.use_cases.code_gen.tests.generate_python_tests as py_tests_gen
 import devOS.use_cases.code_gen.contracts.sync_contracts as contract_sync_gen
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 from devOS.domain import entities
 import os
 from git import Repo
@@ -150,7 +150,7 @@ class GenerateCodeUseCase:
             .replace("project_name", self.project_name)
         )
 
-        File(*path_parts).write(updated_code)
+        file_io.File(*path_parts).write(updated_code)
 
     def generate_dao(
         self,
@@ -158,7 +158,7 @@ class GenerateCodeUseCase:
     ) -> None:
         """Generate DAO code from the DAO specification."""
         self.project_name = project_name
-        specs = File(*self.dao_spec_path).get_json()
+        specs = file_io.File(*self.dao_spec_path).get_json()
 
         for dao_output_configs in self.project_structure.project_root.dao_output_config:
             if dao_output_configs.language == "python":
@@ -194,7 +194,7 @@ class GenerateCodeUseCase:
                 )
 
                 # generate python use_cases for the daos generated
-                default_python_use_cases = File(
+                default_python_use_cases = file_io.File(
                     os.path.dirname(__file__),
                     "templates",
                     "python_use_cases.py",
@@ -206,7 +206,7 @@ class GenerateCodeUseCase:
                 )
 
                 # add associated tests
-                tests_for_use_cases = File(
+                tests_for_use_cases = file_io.File(
                     os.path.dirname(__file__),
                     "templates",
                     "test_use_cases.py",
@@ -216,7 +216,7 @@ class GenerateCodeUseCase:
                 )
 
                 # generate python adapter for the daos generated
-                default_python_adapter = File(
+                default_python_adapter = file_io.File(
                     os.path.dirname(__file__),
                     "templates",
                     "python_adapter.py",
@@ -229,7 +229,7 @@ class GenerateCodeUseCase:
                 )
 
                 # add associated tests
-                tests_for_adapter = File(
+                tests_for_adapter = file_io.File(
                     os.path.dirname(__file__),
                     "templates",
                     "test_adapters.py",
@@ -249,10 +249,10 @@ class GenerateCodeUseCase:
     ) -> None:
         """Generate DTO code from endpoint and DAO specifications."""
         self.project_name = project_name
-        endpoints_raw = File(*self.endpoints_spec_path).get_json()
+        endpoints_raw = file_io.File(*self.endpoints_spec_path).get_json()
         endpoints_spec = entities.EndpointsSpec.model_validate(endpoints_raw)
 
-        dao_raw = File(*self.dao_spec_path).get_json()
+        dao_raw = file_io.File(*self.dao_spec_path).get_json()
         dao_specs = [entities.DAOSchemaSpec.model_validate(d) for d in dao_raw]
 
         for dto_output_configs in self.project_structure.project_root.dto_output_config:
@@ -308,10 +308,10 @@ class GenerateCodeUseCase:
     ) -> None:
         """Generate FastAPI endpoints from specifications."""
         self.project_name = project_name
-        endpoints_raw = File(*self.endpoints_spec_path).get_json()
+        endpoints_raw = file_io.File(*self.endpoints_spec_path).get_json()
         endpoints_spec = entities.EndpointsSpec.model_validate(endpoints_raw)
 
-        dao_raw = File(*self.dao_spec_path).get_json()
+        dao_raw = file_io.File(*self.dao_spec_path).get_json()
         dao_specs = [entities.DAOSchemaSpec.model_validate(d) for d in dao_raw]
 
         for api_output_configs in self.project_structure.project_root.api_output_config:
@@ -362,7 +362,7 @@ class GenerateCodeUseCase:
             corresponding_api_path = (
                 self.project_structure.project_root.api_output_config[index].directory
             )
-            generated_api_code = File(*corresponding_api_path).read_as_utf8()
+            generated_api_code = file_io.File(*corresponding_api_path).read_as_utf8()
             print(f"Generating tests for {corresponding_api_path}...")
             result = generator.generate_tests_for_file(
                 generated_api_code, file_type="endpoint"
@@ -384,7 +384,7 @@ class GenerateCodeUseCase:
             self.project_structure.project_root.test_services_output_directory
         )
         for service_path in self.services_output_path:
-            code = File(service_path).read_as_utf8()
+            code = file_io.File(service_path).read_as_utf8()
             print("Generating tests for generated_services.py...")
             print(code)
             # NOTE: in the future add also option file extension to determing programming language to use.
@@ -440,7 +440,7 @@ class GenerateCodeUseCase:
 
 
 if __name__ == "__main__":
-    project_structure_spec = File("specs", "project_config.json").get_json()
+    project_structure_spec = file_io.File("specs", "project_config.json").get_json()
     project_structure = entities.ProjectConfigSchema(**project_structure_spec)
     code_generator = GenerateCodeUseCase(project_structure=project_structure)
     code_generator.execute("my_project")

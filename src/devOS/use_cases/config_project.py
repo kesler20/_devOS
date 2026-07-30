@@ -2,7 +2,7 @@ from __future__ import annotations
 import typing
 from colorama import Fore, Style, init as colorama_init  # type: ignore
 from devOS.domain import entities
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 from devOS.use_cases import use_cases
 import os
 from git import Repo
@@ -141,9 +141,9 @@ class ConfigProjectUseCase(use_cases.OSInterface):
             val = None
             if (
                 self.update_existing_config
-                and File("specs", "project_config.json").exists()
+                and file_io.File("specs", "project_config.json").exists()
             ):
-                val = File("specs", "project_config.json").get_json()
+                val = file_io.File("specs", "project_config.json").get_json()
                 try:
                     for key in path:
                         if isinstance(key, int):
@@ -407,11 +407,11 @@ class ConfigProjectUseCase(use_cases.OSInterface):
             + Style.RESET_ALL
         )
         # save the config to specs/project_config.json
-        File("specs", "project_config.json").write_json(cfg.model_dump())
+        file_io.File("specs", "project_config.json").write_json(cfg.model_dump())
         if update_existing_config is False:
-            File("specs", "dao_spec.json").write_json([])
+            file_io.File("specs", "dao_spec.json").write_json([])
 
-            File("specs", "endpoints_spec.json").write_json(
+            file_io.File("specs", "endpoints_spec.json").write_json(
                 {
                     "title": "Items Collection CRUD Application",
                     "version": "1.0.0",
@@ -553,7 +553,7 @@ class ConfigProjectUseCase(use_cases.OSInterface):
         if project_name is None:
             project_name = self.project_name
         if (
-            File("specs", "project_config.json").exists() is False
+            file_io.File("specs", "project_config.json").exists() is False
             and not self.update_existing_config
         ):
             # Return a default config in memory only.
@@ -565,7 +565,7 @@ class ConfigProjectUseCase(use_cases.OSInterface):
             cfg = self.__run_setup_wizard(project_name)
             self.write_project_config(cfg)
         else:
-            cfg_metadata = File("specs", "project_config.json").get_json()
+            cfg_metadata = file_io.File("specs", "project_config.json").get_json()
             try:
                 cfg = entities.ProjectConfigSchema.model_validate(cfg_metadata)
             except Exception as e:

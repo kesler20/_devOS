@@ -1,4 +1,4 @@
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 from devOS.use_cases.use_cases import OSInterface
 from devOS.use_cases.manage_git_repo import ManageGitRepositoryUseCase
 import os
@@ -124,12 +124,14 @@ class ManageSnippetsUseCase:
         if snippet_source_dir == "clipboard":
             source_file_content = pyperclip.paste()
         else:
-            source_file_content = File(*snippet_source_dir.split(",")).read_as_utf8()
+            source_file_content = file_io.File(
+                *snippet_source_dir.split(",")
+            ).read_as_utf8()
 
         snippet_id = snippet_source_dir.split(",")[-1]
 
         # write the source content to the snippet destination.
-        File(
+        file_io.File(
             self.snippets_repository, *snippet_destination_dir.split(",")
         ).write_as_utf8(source_file_content)
 
@@ -207,7 +209,7 @@ class ManageSnippetsUseCase:
                 self.show_snippets(snippet_source_dir)
                 return
 
-            print(File(snippet_source_path).read_as_utf8())
+            print(file_io.File(snippet_source_path).read_as_utf8())
             return
 
         if to_key is None or snippet_destination_dir is None:
@@ -223,12 +225,14 @@ class ManageSnippetsUseCase:
             self.__copy_directory(snippet_source_path, destination_dir)
             return
 
-        snippet_content = File(snippet_source_path).read_as_utf8()
+        snippet_content = file_io.File(snippet_source_path).read_as_utf8()
 
         if snippet_destination_dir == "clipboard":
             pyperclip.copy(snippet_content)
         else:
-            File(*snippet_destination_dir.split(",")).write_as_utf8(snippet_content)
+            file_io.File(*snippet_destination_dir.split(",")).write_as_utf8(
+                snippet_content
+            )
 
     def get_folder(
         self,
@@ -284,7 +288,9 @@ class ManageSnippetsUseCase:
         dev delete snippet snippet_repo_dir,subdir,snippet_id
         """
         # delete the snippet file.
-        File(self.snippets_repository, *snippet_destination_dir.split(",")).delete()
+        file_io.File(
+            self.snippets_repository, *snippet_destination_dir.split(",")
+        ).delete()
 
         snippet_id = snippet_destination_dir.split(",")[-1]
 

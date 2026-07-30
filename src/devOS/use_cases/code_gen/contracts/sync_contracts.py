@@ -5,7 +5,7 @@ import re
 import typing
 
 from devOS.domain import entities
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 
 
 class SyncContractsUseCase:
@@ -55,7 +55,7 @@ class SyncContractsUseCase:
                 if output_config.source_language != source_language:
                     continue
 
-                source_code = File(contract_file).read_as_utf8()
+                source_code = file_io.File(contract_file).read_as_utf8()
                 translated_code = self._translate_code(source_code, source_language)
                 if translated_code is None:
                     continue
@@ -79,7 +79,7 @@ class SyncContractsUseCase:
                     "->",
                     os.path.join(*destination_parts),
                 )
-                File(*destination_parts).write_as_utf8(translated_code)
+                file_io.File(*destination_parts).write_as_utf8(translated_code)
 
     def _search_for_contract_files(self) -> list[str]:
         contract_files: list[str] = []
@@ -96,7 +96,7 @@ class SyncContractsUseCase:
 
                 file_path = os.path.join(dirpath, filename)
                 try:
-                    content = File(file_path).read_as_utf8()
+                    content = file_io.File(file_path).read_as_utf8()
                 except Exception:
                     continue
 

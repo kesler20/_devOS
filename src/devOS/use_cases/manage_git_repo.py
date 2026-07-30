@@ -5,7 +5,7 @@ from random import randint
 from devOS.use_cases import use_cases
 import os
 
-from devOS.use_cases.utils.file_io import File
+import devOS.use_cases.utils.file_io as file_io
 
 
 class TypesOFRelease(enum.Enum):
@@ -327,7 +327,7 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
 
             # update uv and package.json files with the new version.
             self.execute_command(f"uv version {new_version.replace('v', '')}")
-            if File("package.json").exists():
+            if file_io.File("package.json").exists():
                 self.execute_command(
                     f"npm version {new_version.replace('v', '')} --no-git-tag-version"
                 )
