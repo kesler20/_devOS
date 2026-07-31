@@ -835,6 +835,8 @@ Do not worry about backward compatibility. When renaming, removing, or changing 
 
 Write tests when implementing new features or fixing bugs. Only test at the interface between layers — never test internal data classes, ports, or framework boilerplate in isolation.
 
+Always add mocks and test infrastructure where possible, such as a test database, so use cases and adapters can be exercised without hitting real external systems.
+
 ```
 tests/
     test_use_cases.py     # Tests for use case execute methods

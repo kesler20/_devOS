@@ -599,12 +599,9 @@ class HomeRootConfig(pydantic.BaseModel):
     ----------
     snippets : list[str]
         Paths to snippet directories, specified as lists of path components, relative to the user's home directory.
-    vault : list[str]
-        Path to the credentials vault, specified as a list of path components, relative to the user's home directory.
     """
 
     snippets: list[str]
-    vault: list[str]
 
 
 class ProjectConfigSchema(pydantic.BaseModel):
@@ -613,11 +610,14 @@ class ProjectConfigSchema(pydantic.BaseModel):
 
     Parameters
     ----------
+    project_name : str
+        Git repository name persisted for deployed runtimes.
     home_root : HomeRootConfig
         Global configuration rooted at the user's home directory.
     project_root : ProjectSpecificConfig
         Project-specific configuration, with paths relative to the project root.
     """
 
+    project_name: str
     home_root: HomeRootConfig
     project_root: ProjectSpecificConfig

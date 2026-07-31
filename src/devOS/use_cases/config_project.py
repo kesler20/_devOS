@@ -162,16 +162,7 @@ class ConfigProjectUseCase(use_cases.OSInterface):
             return str(val)
 
         # Prompt for home_root directories
-        self.log_message(
-            "The following information is used to manage vaults and snippets\n"
-        )
-        vault = self.__prompt(
-            "Enter the vault directory (relative to home, comma-separated)",
-            default=get_default(
-                ["home_root", "vault"], "protocol,00 PKM,3 Resources,Vault"
-            ),
-        ).split(",")
-
+        self.log_message("The following information locates reusable snippets\n")
         snippets = self.__prompt(
             "Enter the snippets directory (relative to home, comma-separated)",
             default=get_default(["home_root", "snippets"], "protocol,devOS,snippets"),
@@ -292,8 +283,8 @@ class ConfigProjectUseCase(use_cases.OSInterface):
 
         # Build the project configuration
         project_config = entities.ProjectConfigSchema(
+            project_name=project_name,
             home_root=entities.HomeRootConfig(
-                vault=[v.strip() for v in vault if v.strip()],
                 snippets=[s.strip() for s in snippets if s.strip()],
             ),
             project_root=entities.ProjectSpecificConfig(
@@ -466,8 +457,8 @@ class ConfigProjectUseCase(use_cases.OSInterface):
             Default project configuration.
         """
         return entities.ProjectConfigSchema(
+            project_name=project_name,
             home_root=entities.HomeRootConfig(
-                vault=["protocol", "00 PKM", "3 Resources", "Vault"],
                 snippets=["protocol", "devOS", "snippets"],
             ),
             project_root=entities.ProjectSpecificConfig(

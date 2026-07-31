@@ -70,37 +70,59 @@ Design entities, set field types and relationships, then export directly to
 
 ### Managing Credentials
 
-Store per-project environment variables in the **vault** (outside of git):
+Store credentials as JSON documents in Redis. The runtime needs only its Redis
+bootstrap credentials to load the shared `general` namespace and the namespace for
+the current Git project. Project values override general values.
 
-```
-vault/
-  dotenv_project_name          # project-specific .env values
-  dotenv_example_project_name  # template for new developers
+Configure Redis with either a single URL:
+
+```dotenv
+DEVOS_CREDENTIALS_REDIS_URL=rediss://username:password@host:6379/0
 ```
 
-Copy credentials from vault back into the current project (`.env` and
-`.env.example`):
+Or separate `DEVOS_CREDENTIALS_REDIS_HOST`, `PORT`, `USERNAME`, `PASSWORD`, `DB`,
+and `SSL` variables. The URL takes precedence when both forms are present.
+
+Install a project-owned loader and configuration template:
 
 ```bash
-dev get credentials project_name
+dev setup credentials
 ```
 
----
+Import the current `.env`, set one value, or materialize the effective credentials:
 
-### Managing Secrets
-
-Global secrets (not tied to any single project) live at the vault root:
-
-```
-vault/
-  global_secret_{secret_key}
+```bash
+dev set credentials
+dev set credential API_TOKEN token-value
+dev get credentials
 ```
 
-Set and retrieve global secrets:
+General values use the existing secrets command:
 
 ```bash
 dev set secrets secret_key secret_value
 dev get secrets secret_key
+```
+
+The get command copies the value to the clipboard without printing it. Listing shows
+key names only:
+
+```bash
+dev list credentials
+```
+
+Back up or restore the complete credential estate as hierarchical JSON:
+
+```bash
+dev export credentials vault-export
+dev import credentials vault-export
+```
+
+The one-time legacy migration is intentionally a script rather than a permanent
+command:
+
+```bash
+python scripts/migrate_credentials_vault.py
 ```
 
 ---
@@ -229,7 +251,7 @@ where you can:
 
 - Customize default configs and settings for your team
 - Maintain your own snippets as git branches
-- Use it as a secrets vault
+- Use it as a Redis-backed credential database client
 - Run local Ralph workflows without cloud dependencies
 
 ---
@@ -304,18 +326,11 @@ This will:
 - Configure environment variables
 - Set up code snippets as git branches
 
-3. **Configure your vault:**
+3. **Configure credential storage:**
 
-Store credentials and secrets outside of GitHub:
-
-```
-vault/
-  dotenv_project_name
-  dotenv_example_project_name
-  global_secret_{secret_key}
-```
-
-Secrets are not project-specific and can be stored at the vault root level.
+Set the Redis bootstrap variables, then run `dev setup credentials`. Redis becomes
+the credential authority. A local `.env` remains an explicit materialization and
+offline fallback.
 
 4. **Verify installation:**
 
@@ -336,16 +351,20 @@ focus on:
 - Implementing adapters (services)
 - Creating comprehensive tests
 
-### The Vault
+### The Credential Database
 
-A collection of credentials and secrets stored **outside of GitHub** that can be
-shared with team members.
+Redis stores one JSON document for general credentials and one per Git project.
+Applications load both at import time through their copied `configs.py` bundle.
+Redis is authoritative when available. If it cannot be reached, values already loaded
+from a local `.env` remain in place.
 
-**Structure:**
+Explicit exports preserve arbitrary JSON values under:
 
-- `dotenv_project_name` — Project-specific environment variables
-- `dotenv_example_project_name` — Example template for new developers
-- `global_secret_{secret_key}` — Non-project-specific secrets
+```text
+vault-export/
+  general/credentials.json
+  projects/<project-name>/credentials.json
+```
 
 ### Snippets as Version-Controlled Assets
 
@@ -415,7 +434,7 @@ graph TB
 
     subgraph "Developer Assets"
         M[Snippets<br/>Git Branches]
-        N[Vault<br/>Secrets]
+        N[Redis Credential Database]
         O[Templates]
     end
 
@@ -763,9 +782,9 @@ Edit `specs/project_config.json` to customize:
 
 ```json
 {
+  "project_name": "my-project",
   "home_root": {
-    "vault_path": ["vault"],
-    "snippets_repo": "https://github.com/your-org/devos-snippets"
+    "snippets": ["protocol", "devOS", "snippets"]
   },
   "project_root": {
     "dao_output_config": [

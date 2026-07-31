@@ -3,6 +3,9 @@ import sys
 import typing
 
 
+SENSITIVE_FUNCTION_NAMES = {"set_credential", "set_global_secret"}
+
+
 def print_message(*args):
     if "--debug" in sys.argv or "--explain" in sys.argv or "--help" in sys.argv:
         print(*args)
@@ -14,7 +17,9 @@ def print_error(*args):
 
 def execute_function(leaf_node: typing.Callable[..., typing.Any], *args):
     print_message("executing function:", leaf_node)
-    print_message("with args:", args)
+    arguments_are_sensitive = leaf_node.__name__ in SENSITIVE_FUNCTION_NAMES
+    displayed_arguments = "[redacted]" if arguments_are_sensitive else args
+    print_message("with args:", displayed_arguments)
     try:
         leaf_node(*args)
     except Exception as e:

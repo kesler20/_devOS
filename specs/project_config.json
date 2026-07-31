@@ -1,7 +1,7 @@
 {
+  "project_name": "devOS",
   "home_root": {
-    "snippets": ["protocol", "devOS", "snippets"],
-    "vault": ["protocol", "00 PKM", "3 Resources", "Vault"]
+    "snippets": ["protocol", "devOS", "snippets"]
   },
   "project_root": {
     "dao_output_config": [

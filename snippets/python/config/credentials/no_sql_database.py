@@ -85,6 +85,7 @@ class RedisClient:
         return int(self.__redis_client.delete(key))
 
 
+
 class RedisKeyValueAdapter(NoSQLDatabasePort):
     def __init__(self, redis_client: RedisClient) -> None:
         self.__redis_client = redis_client

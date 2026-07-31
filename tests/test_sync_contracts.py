@@ -12,7 +12,8 @@ def _build_project_config(
     output_directory: list[str],
 ) -> entities.ProjectConfigSchema:
     return entities.ProjectConfigSchema(
-        home_root=entities.HomeRootConfig(snippets=["snippets"], vault=["vault"]),
+        project_name="sample-project",
+        home_root=entities.HomeRootConfig(snippets=["snippets"]),
         project_root=entities.ProjectSpecificConfig(
             dao_output_config=[],
             dto_output_config=[],
