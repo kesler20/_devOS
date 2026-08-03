@@ -698,7 +698,7 @@ Behavioural classes orchestrate data classes and represent the concrete features
 
 ### 5.1. The Execute Method
 
-Every Use Case has an `execute` method as its primary entry point. Dependencies such as adapters, ports, clients, or other Use Cases are injected through the constructor, making the class easy to test with mocks. Create a Use Case only when its entry point represents an application capability a caller could meaningfully request and receive a complete outcome from. Do not create one merely to shorten another Use Case or name an internal processing step.
+Every Use Case has an `execute` method as its primary entry point. Dependencies such as adapters, ports, or other Use Cases are injected through the constructor, making the class easy to test with mocks. Low-level clients remain behind adapters. Create a Use Case only when its entry point represents an application capability a caller could meaningfully request and receive a complete outcome from. Do not create one merely to shorten another Use Case or name an internal processing step.
 
 A capability does not need multiple callers to qualify. A Use Case may also expose additional public methods when they represent closely related operations on the same domain concept. All public methods on the class must share the same dependencies and belong to the same logical feature.
 
@@ -797,27 +797,15 @@ class LocalSettingsAdapter:
 ```
 
 ```python
-# Translate application database operations through a provider-specific client.
+# Translate the application chat operation through a provider-specific client.
 @dataclass
-class PostgresDatabaseAdapter:
-    __client: PostgresClient
+class ChatModelAdapter:
+    __client: OpenAIClient
 
-    def save_user(self, user: UserDAO) -> None:
-        logging.info("Saving user %s to PostgreSQL", user.name)
-        self.__client.execute(
-            "INSERT INTO users (id, name) VALUES (%s, %s)",
-            (user.id, user.name),
-        )
-        logging.info("User %s saved successfully", user.name)
-
-    def find_user_by_id(self, user_id: int) -> UserDAO | None:
-        logging.info("Looking up user %d", user_id)
-        row = self.__client.fetch_one(
-            "SELECT id, name FROM users WHERE id = %s", (user_id,)
-        )
-        if row is None:
-            return None
-        return UserDAO(id=row["id"], name=row["name"])
+    def generate(self, prompt: str, tools: list[Tool] | None = None) -> ChatResponse:
+        # Convert the OpenAI response into the application-facing chat contract.
+        response = self.__client.chat_completions_create(prompt, tools)
+        return ChatResponse.from_openai(response)
 ```
 
 ### 5.4. Ports and Interfaces
@@ -825,49 +813,47 @@ class PostgresDatabaseAdapter:
 Create a port only when more than one adapter implements the same functionality. The port holds the single source of truth for the method signature and docstring. Adapters implement the port but do not repeat the signature documentation.
 
 ```python
-# Share one application contract across two provider-specific adapters.
+# Share one storage contract across two provider-specific adapters.
 import abc
 
 
-class ChatModelPort(abc.ABC):
+class DocumentStoragePort(abc.ABC):
     @abc.abstractmethod
-    def generate(self, prompt: str, tools: list[Tool] | None = None) -> ChatResponse:
+    def save(self, document: Document) -> StorageReceipt:
         """
-        Generate a response from a chat model.
+        Save a document to durable storage.
 
         Parameters
         ----------
-        prompt : str
-            The input prompt to send to the model.
-        tools : list[Tool] | None
-            Optional list of tools the model may call.
+        document : Document
+            The document to persist.
 
         Returns
         -------
-        ChatResponse
-            The model's response, which may include tool calls.
+        StorageReceipt
+            The stable identifier and location of the persisted document.
         """
         ...
 
 
 @dataclass
-class OpenAIChatModelAdapter(ChatModelPort):
-    __client: OpenAIClient
+class S3DocumentStorageAdapter(DocumentStoragePort):
+    __client: AWSClient
 
-    def generate(self, prompt, tools=None):
-        # Translate the OpenAI-specific response into the application contract.
-        raw_response = self.__client.chat_completions_create(prompt, tools)
-        return ChatResponse.from_openai(raw_response)
+    def save(self, document):
+        # Translate the document into the S3 request and receipt contract.
+        response = self.__client.put_object(document.key, document.content)
+        return StorageReceipt.from_s3(response)
 
 
 @dataclass
-class AnthropicChatModelAdapter(ChatModelPort):
-    __client: AnthropicClient
+class GoogleCloudDocumentStorageAdapter(DocumentStoragePort):
+    __client: GoogleCloudStorageClient
 
-    def generate(self, prompt, tools=None):
-        # Translate the Anthropic-specific response into the application contract.
-        raw_response = self.__client.messages_create(prompt, tools)
-        return ChatResponse.from_anthropic(raw_response)
+    def save(self, document):
+        # Translate the document into the Google Cloud request and receipt contract.
+        response = self.__client.upload_blob(document.key, document.content)
+        return StorageReceipt.from_google_cloud(response)
 ```
 
 When only one adapter exists for a piece of infrastructure, inject the adapter directly into the use case without creating a port.
