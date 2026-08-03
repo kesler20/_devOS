@@ -270,7 +270,7 @@ print(result.tool_name)  # instead of result[0]
 
 **Comments** describe the *intent* of a block before you write it. Write a comment explaining what you are about to do, then write the code. If the code is self-explanatory after you have written it, the comment can stay as a section label or be removed.
 
-When a use-case entry point is long, divide it into major domain stages with visible banner comments. Under each banner, add an ordinary comment describing the purpose of the whole block and the state it establishes. Comments should explain intent and domain progression, not translate individual lines. A long entry point with a visible workflow is preferable to a short one whose workflow is scattered across private methods.
+Use banner comments only when a Use Case entry point implements a genuinely complex, multipart workflow with several distinct domain stages. Do not add banners to short or straightforward `execute()` methods. When banners are warranted, divide the entry point into major domain stages and add an ordinary comment beneath each banner describing the purpose of the whole block and the state it establishes. Comments should explain intent and domain progression, not translate individual lines. A long entry point with a visible workflow is preferable to a short one whose workflow is scattered across private methods.
 
 ```python
 class FulfilOrderUseCase:
@@ -436,7 +436,7 @@ def _is_valid_email(self, value: str) -> bool:
 
 ### 3.5. Local Functions Inside Use-Case Entry Points
 
-Keep use-case orchestration inside `execute()`, or inside the established public streaming entry point when the Use Case is inherently a generator. A long, readable entry point is always preferable to decomposition into class-private methods. Use the banner and intent-comment structure from section 3.1 to make the workflow visible.
+Keep use-case orchestration inside `execute()`, or inside the established public streaming entry point when the Use Case is inherently a generator. A long, readable entry point is always preferable to decomposition into class-private methods. Use the banner and intent-comment structure from section 3.1 only for genuinely complex, multipart workflows. Leave short and straightforward entry points unsectioned.
 
 A public entry point may contain at most three nested functions, with at most one nested function in each banner section. These are maximums, not targets. A single-use nested function is acceptable when it names a substantial, cohesive operation and materially improves the readability of that section.
 
