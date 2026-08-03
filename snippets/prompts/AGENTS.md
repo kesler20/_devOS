@@ -37,11 +37,11 @@ Every programme is composed from a small vocabulary of building blocks.
 
 **Data classes** store data using fields and expose behaviour through methods that operate on that data. They are the nouns of the system: `AgentRunInput`, `Product`, `OrderStatus`.
 
-**Behavioural classes** orchestrate the data passing between data classes. They represent concrete features of the programme and are named in the language of the problem domain. They are the verbs of the system: `ToolCallingUseCase`, `StructuredOutputUseCase`, `StreamingResponseUseCase`.
+**Behavioural classes, or Use Cases,** orchestrate the data passing between data classes. Each represents an independently meaningful application capability that a caller could request and receive a complete outcome from. A Use Case is not an internal workflow step extracted merely to shorten another Use Case. It need not be reused to qualify. Use Cases are named in the language of the problem domain and are the verbs of the system: `ToolCallingUseCase`, `StructuredOutputUseCase`, `StreamingResponseUseCase`.
 
-**Adapters** implement external APIs or infrastructure used by the application. They interact with third-party services, databases, legacy systems, or anything outside the system boundary: `TickTickBacklogAdapter`, `SQLDbAdapter`. Unlike clients, adapters represent concrete implementation of an infrastructure component such as a database, authentication provider, email service, etc...
+**Adapters** translate between application language and a genuine external or variable dependency. They are justified by implementation substitution, protocol or schema translation, credentials or connection lifecycle, or dependency-specific failure handling. They interact with third-party services, databases, legacy systems, or other infrastructure boundaries: `TickTickBacklogAdapter`, `SQLDbAdapter`.
 
-**Clients** wrap external libraries or services, managing credentials and connection details: `GoogleClient`, `AWSClient`, `RedisClient`.
+**Clients** wrap external libraries or services and manage low-level credentials, connections, and SDK details. Adapters expose application-specific infrastructure operations and may compose clients: `GoogleClient`, `AWSClient`, `RedisClient`.
 
 **Ports/Interfaces** define contracts between Use Cases and adapters. They only exist when more than one adapter implements the same piece of infrastructure, otherwise the use case should interact directly with the adapter.
 
@@ -153,18 +153,19 @@ _ALLOWED_TOOLS = "Read,Write,Edit"
 _CLAUDE_WORKING_DIRECTORY = Path(configs.PROTOCOL_FOLDER) / "claude"
 ```
 
-**Helper logic belongs inside the class, not at module level.** If a function exists only to serve one class, define it as a `__private_method` on that class. Standalone module-level helper functions are only acceptable when they are genuinely reused across multiple classes or modules.
+**Execute-local helper logic stays inside the public entry point.** If logic serves only one Use Case entry point, keep it inline or define it as a nested function subject to section 3.5. Do not promote it to a `__private_method` merely because the entry point is long. Kesler decides whether a nested function should become a class method. Standalone module-level helper functions are only acceptable when they are genuinely reused across multiple classes or modules.
 
 ```python
-# Good — helper lives inside the class that uses it
+# Good: helper remains local to the entry point that uses it
 class AgenticWorkflowUseCase:
-    def __resolve_bash(self, env: dict[str, str]) -> str | None:
-        ...
-
     def execute(self) -> None:
-        bash = self.__resolve_bash(os.environ.copy())
+        def resolve_bash(env: dict[str, str]) -> str | None:
+            ...
 
-# Bad — helper exposed at module level just for one class
+        bash = resolve_bash(os.environ.copy())
+
+
+# Bad: helper exposed at module level just for one entry point
 def _resolve_bash() -> str | None:
     ...
 
@@ -433,13 +434,15 @@ def _is_valid_email(self, value: str) -> bool:
     return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value))
 ```
 
-### 3.5. Keep Use-Case Orchestration in the Public Entry Point
+### 3.5. Local Functions Inside Use-Case Entry Points
 
-Keep use-case orchestration inside `execute()`, or inside the established public streaming entry point when the use case is inherently a generator. Do not extract methods merely because the public entry point is long. Use the banner and intent-comment structure from section 3.1 to keep the workflow readable.
+Keep use-case orchestration inside `execute()`, or inside the established public streaming entry point when the Use Case is inherently a generator. A long, readable entry point is always preferable to decomposition into class-private methods. Use the banner and intent-comment structure from section 3.1 to make the workflow visible.
 
-Do not extract single-use or twice-used calculations, validation, persistence, transformation, or external-call blocks. Extract a private method only when the same coherent operation is genuinely called at least three times from the public entry point. This three-call threshold is absolute, including side effects and infrastructure calls. Do not introduce nested functions to bypass it.
+A public entry point may contain at most three nested functions, with at most one nested function in each banner section. These are maximums, not targets. A single-use nested function is acceptable when it names a substantial, cohesive operation and materially improves the readability of that section.
 
-Leave optional aesthetic decomposition of long use-case methods to Kesler. The agent should deliver the complete workflow in one readable public entry point and allow Kesler to decide whether any further extraction improves it.
+Keep simple expressions, state updates, sequential control flow, persistence calls, external calls, and response construction inline unless a nested function clearly improves the containing section. The public entry point must continue to show the workflow's control flow, state progression, external interactions, and final projection.
+
+The public entry point calls each nested function directly. Nested functions do not call one another. If a fourth extraction appears useful, keep that logic inline. Do not promote nested functions to `__private` class methods for aesthetic reasons. Kesler decides whether any nested function should become a class method.
 
 ---
 
@@ -488,6 +491,8 @@ class OrderProgress:
 ### 4.2. Private by Default
 
 Write all class methods as private by default using double-underscore (`__`) name mangling. Only make a method public when it is required by an external consumer. Private instance properties are also declared with `__` prefix.
+
+This rule applies only after behaviour has been shown to belong on the class. It does not authorise extracting execute-local logic into class-private methods. Apply section 3.5 first.
 
 This convention applies **only within class definitions**. Never use underscore prefixes on module-level variables, standalone functions, or local variables inside functions.
 
@@ -626,7 +631,9 @@ Behavioural classes orchestrate data classes and represent the concrete features
 
 ### 5.1. The Execute Method
 
-Every use case has an `execute` method as its primary entry point. Dependencies (such as adapters, ports, clients or other use cases) are injected through the constructor, making the class easy to test with mocks. While `execute` is the main public method, a use case may expose additional public methods when they represent closely related operations on the same domain concept. This avoids an explosion of single-method use case classes for every minor variation. The key constraint is that all public methods on the class should share the same dependencies and belong to the same logical feature.
+Every Use Case has an `execute` method as its primary entry point. Dependencies such as adapters, ports, clients, or other Use Cases are injected through the constructor, making the class easy to test with mocks. Create a Use Case only when its entry point represents an application capability a caller could meaningfully request and receive a complete outcome from. Do not create one merely to shorten another Use Case or name an internal processing step.
+
+A capability does not need multiple callers to qualify. A Use Case may also expose additional public methods when they represent closely related operations on the same domain concept. All public methods on the class must share the same dependencies and belong to the same logical feature.
 
 ```python
 from dataclasses import dataclass
@@ -637,27 +644,32 @@ class ToolCallingUseCase:
     chat_client: ChatModelClient
     tool_registry: ToolRegistryAdapter
 
-    def __call_tools(
-        self, run_input: AgentRunInput, tools: list[Tool]
-    ) -> list[ToolResult]:
-        results = []
-        for step in range(run_input.max_steps):
-            response = self.chat_client.generate(run_input.prompt, tools)
-            if response.has_tool_call():
-                result = self.tool_registry.invoke(response.tool_call)
-                results.append(result)
-                logging.info("Step %d: called %s", step, result.tool_name)
-            else:
-                break
-        return results
-
     def execute(self, run_input: AgentRunInput) -> AgentRunSummary:
         logging.info("Starting tool calling for prompt: %s", run_input.prompt)
+
+        # ======================== #
+        #                          #
+        #   CALL AVAILABLE TOOLS   #
+        #                          #
+        # ======================== #
+
+        # Run the bounded tool-calling loop and retain each completed result.
+        def call_tools(tools: list[Tool]) -> list[ToolResult]:
+            results = []
+            for step in range(run_input.max_steps):
+                response = self.chat_client.generate(run_input.prompt, tools)
+                if response.has_tool_call():
+                    result = self.tool_registry.invoke(response.tool_call)
+                    results.append(result)
+                    logging.info("Step %d: called %s", step, result.tool_name)
+                else:
+                    break
+            return results
 
         available_tools = self.tool_registry.list_tools()
         logging.info("Found %d available tools", len(available_tools))
 
-        raw_results = self.__call_tools(run_input, available_tools)
+        raw_results = call_tools(available_tools)
         cleaned_outputs = [result.output_text.strip() for result in raw_results]
         logging.info("Cleaned %d tool outputs", len(cleaned_outputs))
 
@@ -669,7 +681,7 @@ class ToolCallingUseCase:
 ```
 ### 5.2. Composing Use Cases
 
-Because each use case is a class with injected dependencies, they compose naturally. A higher-level use case can use lower-level ones with their own state objects. This composability is important for several reasons: each use case encapsulates its own state and dependencies, so the higher-level orchestrator does not need to know the internals of the steps it coordinates. It also means each use case can be tested independently with its own mocks, and reused across different contexts.
+Because each Use Case is a class with injected dependencies, independently meaningful capabilities compose naturally. A higher-level Use Case may call a lower-level one when the lower-level entry point accepts meaningful application input and returns a complete result without depending on transient internal state owned by its caller. Reuse across several workflows is useful evidence, but it is not required. An internal workflow step that cannot stand alone remains inline or becomes a nested function under section 3.5.
 
 ```python
 @dataclass
@@ -694,9 +706,17 @@ class AgenticRunUseCase:
 
 ### 5.3. Adapters and Clients
 
-Adapters wrap infrastructure concerns. Clients wrap external libraries and manage credentials. Adapters import clients, not the other way around.
+Adapters translate application-specific operations into calls to genuine external or variable dependencies. Clients handle the low-level SDK, authentication, connection, and transport details. Adapters may import and compose clients, not the other way around.
 
-Introduce an abstraction only when it represents a genuine variable dependency, an external system boundary, or multiple concrete implementations. Do not wrap a stable direct library call or local operation in an adapter solely for architectural symmetry. Keep the operation in the owning use case until a real substitution boundary exists.
+Create an adapter when at least one real boundary exists: implementation substitution, an external protocol or schema, credentials or connection lifecycle, or dependency-specific failure handling. I/O alone does not justify an adapter. Do not wrap a stable direct library call or local operation solely for architectural symmetry. Keep it in the owning Use Case until a real boundary exists.
+
+Classify extracted behaviour in this order:
+
+1. Keep ordinary workflow logic inline.
+2. Use a nested function under section 3.5 for a substantial cohesive operation local to one public entry point.
+3. Create a Use Case for an independently meaningful application capability.
+4. Create an adapter for an application-facing infrastructure boundary.
+5. Create a client for low-level SDK, credential, connection, or transport concerns used by an adapter.
 
 ```python
 # Good: a stable local operation remains in the use case that owns it
