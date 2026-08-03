@@ -714,7 +714,7 @@ Classify extracted behaviour in this order:
 
 1. Keep ordinary workflow logic inline.
 2. Use a nested function under section 3.5 for a substantial cohesive operation local to one public entry point.
-3. Create a Use Case for an independently meaningful application capability.
+3. Create a Use Case only when the capability passes the independent-caller test in section 5.1.
 4. Create an adapter for an application-facing infrastructure boundary.
 5. Create a client for low-level SDK, credential, connection, or transport concerns used by an adapter.
 
