@@ -833,16 +833,22 @@ Do not worry about backward compatibility. When renaming, removing, or changing 
 
 ## 7. Testing Strategy
 
-Write tests when implementing new features or fixing bugs. Only test at the interface between layers — never test internal data classes, ports, or framework boilerplate in isolation.
+Every use case gets a test, and every adapter/client gets a test — not just
+when a feature happens to touch one. Add smoke tests and regression tests as
+their own categories on top of that, per 7.3 and 7.4 below. Only test at the
+interface between layers — never test internal data classes, ports, or
+framework boilerplate in isolation.
 
 Always add mocks and test infrastructure where possible, such as a test database, so use cases and adapters can be exercised without hitting real external systems.
 
 ```
 tests/
-    test_use_cases.py     # Tests for use case execute methods
-    test_adapters.py      # Tests for adapter integration
-    test_routers.py       # Tests for API endpoints
-    test_bugs.py          # Regression tests for fixed bugs
+    conftest.py            # Shared Fake*/Mock* test doubles used by 2+ test files
+    test_use_cases.py       # Tests for use case execute methods
+    test_adapters.py        # Tests for adapter integration
+    test_routers.py         # Tests for API endpoints
+    test_repo_hygiene.py    # Smoke tests: repo-wide invariants
+    test_bugs.py            # Regression tests for fixed bugs
 ```
 
 ### 7.1. Testing Use Cases
@@ -877,6 +883,44 @@ def test_empty_tool_result_does_not_crash():
     result = ToolResult(tool_name="empty_tool", output_text="")
     cleaned = result.output_text.strip()
     assert cleaned == ""
+```
+
+### 7.3. Shared Test Doubles
+
+A `Fake*`/`Mock*` class needed by two or more test files belongs in `conftest.py`, not copy-pasted into each one. A test double used by only one file stays local to that file — don't pre-emptively centralize something nothing else needs yet.
+
+```python
+# tests/conftest.py
+
+class FakeResponse:
+    def __init__(self, json_data: dict, status_code: int = 200) -> None:
+        self._json_data = json_data
+        self.status_code = status_code
+
+    def json(self) -> dict:
+        return self._json_data
+```
+
+### 7.4. Smoke Tests
+
+A smoke test asserts a repo-wide invariant rather than one component's behavior — the kind of thing that silently rots (a renamed folder nothing reads from anymore, a config drifting out of sync) rather than failing loudly on its own. Keep these in `test_repo_hygiene.py`.
+
+```python
+# tests/test_repo_hygiene.py
+
+def test_agent_state_folder_exists() -> None:
+    assert (ROOT / "@db").is_dir()
+
+
+def test_no_stray_db_folder() -> None:
+    """Agent state belongs in `@db`, never in a folder named `db`.
+
+    Dropping the leading at-sign silently creates a `db` folder that nothing
+    ever reads, so accumulated state is lost until someone notices. This test
+    makes that mistake fail loudly.
+    """
+    stray = ROOT / "db"
+    assert not stray.exists()
 ```
 
 ---

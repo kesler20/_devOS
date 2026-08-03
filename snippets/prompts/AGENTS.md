@@ -141,7 +141,7 @@ that term does not itself describe a domain concept. Follow the naming
 conventions already used in the codebase instead, consistent with how it already
 models and represents the domain.
 
-**No leading underscores on module-level names.** Constants, module-level variables, and any name defined at the top of a file must never begin with `_`. Use plain `UPPER_CASE` for constants. The `_` prefix is only valid inside a class body for private methods and private instance attributes (see section 4.1).
+**No leading underscores on module-level names.** Constants, module-level variables, and any name defined at the top of a file must never begin with `_`. Use plain `UPPER_CASE` for constants. The `_` prefix is only valid inside a class body for private methods and private instance attributes (see section 4.2).
 
 ```python
 # Good
@@ -269,6 +269,36 @@ print(result.tool_name)  # instead of result[0]
 
 **Comments** describe the *intent* of a block before you write it. Write a comment explaining what you are about to do, then write the code. If the code is self-explanatory after you have written it, the comment can stay as a section label or be removed.
 
+When a use-case entry point is long, divide it into major domain stages with visible banner comments. Under each banner, add an ordinary comment describing the purpose of the whole block and the state it establishes. Comments should explain intent and domain progression, not translate individual lines. A long entry point with a visible workflow is preferable to a short one whose workflow is scattered across private methods.
+
+```python
+class FulfilOrderUseCase:
+    def execute(self, order: Order) -> FulfilmentResult:
+        # ======================== #
+        #   RESERVE ORDER STOCK    #
+        # ======================== #
+
+        # Reserve every requested item and record what can be fulfilled.
+        reserved_items = []
+        for item in order.items:
+            if item.quantity <= self.stock_by_product[item.product_id]:
+                reserved_items.append(item)
+
+        # ======================== #
+        #   CALCULATE PAYMENT      #
+        # ======================== #
+
+        # Calculate the amount payable from the stock that was actually reserved.
+        amount_due = sum(item.unit_price * item.quantity for item in reserved_items)
+
+        # ======================== #
+        #   BUILD THE RESULT       #
+        # ======================== #
+
+        # Return the final fulfilment state produced by the preceding stages.
+        return FulfilmentResult(items=reserved_items, amount_due=amount_due)
+```
+
 **Logging** belongs at system boundaries, not after every operation. Log at the entry and exit of use case `execute` methods, when crossing adapter boundaries (external calls, database queries), and when errors or unexpected conditions occur. 
 
 
@@ -299,6 +329,8 @@ def enrich_user_profile(user: User, metadata: Metadata) -> EnrichedProfile:
 ### 3.2. Descriptive Variable Names
 
 Write variable names without abbreviations so that the code reads without comments. The name should describe what the variable holds, not how it was computed.
+
+Name the current domain fact rather than the calculation or temporary mechanism that produced it. Prefer `order_is_ready_for_dispatch` and `current_batch_number` over names such as `condition_result`, `calculated_index`, or `assignment_data`.
 
 ```python
 # Good: reads like prose, no comments needed
@@ -332,7 +364,7 @@ def process_order(order: Order) -> str:
 
 ### 3.4. Storing Complex Expressions in Variables
 
-When an expression returns a boolean or truthy value and involves multiple conditions, store the result in a descriptively named variable. This turns opaque logic into readable intent.
+When a boolean, arithmetic, indexing, or lookup expression requires mental calculation, store the result in a descriptively named variable. This turns opaque logic into readable intent and gives subsequent code a domain fact it can reuse.
 
 ```python
 def calculate_price_if_available(product: Product, quantity: int) -> float | None:
@@ -348,6 +380,37 @@ def calculate_price_if_available(product: Product, quantity: int) -> float | Non
 
     logging.info("Product is not available or price is not set.")
     return None
+```
+
+For ordered physical or workflow processes, prefer explicit counters and state progression over repeatedly reconstructing state from a global index. Avoid modulo, floor division, nested offsets, or equivalent arithmetic when named state variables express the process more directly. Once a fact has been established during the current iteration, reuse it instead of independently recalculating it later.
+
+```python
+# Good: the variables describe the production process directly
+current_batch_number = 1
+items_processed_in_batch = 0
+buffer_steps_remaining = 0
+
+for item in production_items:
+    batch_is_being_processed = buffer_steps_remaining == 0
+    if batch_is_being_processed:
+        process(item, batch_number=current_batch_number)
+        items_processed_in_batch += 1
+
+        batch_is_complete = items_processed_in_batch == items_per_batch
+        if batch_is_complete:
+            current_batch_number += 1
+            items_processed_in_batch = 0
+            buffer_steps_remaining = configured_buffer_steps
+    else:
+        buffer_steps_remaining -= 1
+
+
+# Bad: readers must repeatedly reconstruct the process from index arithmetic
+for item_index, item in enumerate(production_items):
+    position_in_cycle = item_index % (items_per_batch + configured_buffer_steps)
+    batch_number = item_index // (items_per_batch + configured_buffer_steps) + 1
+    if position_in_cycle < items_per_batch:
+        process(item, batch_number=batch_number)
 ```
 
 Do not create a helper function whose body is a single-expression return when it has only one caller. Assign the expression to a descriptively named variable directly in the code that uses it — the variable name does the job the function name would have done, without the indirection.
@@ -370,37 +433,13 @@ def _is_valid_email(self, value: str) -> bool:
     return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value))
 ```
 
-### 3.5. Nested Functions for Local Extraction
+### 3.5. Keep Use-Case Orchestration in the Public Entry Point
 
-When a function grows large, refactor by extracting helper functions *inside* the parent function. This avoids polluting the class with private methods that only serve one caller. Promote an inner function to a private class method only when it needs to be reused by other methods.
+Keep use-case orchestration inside `execute()`, or inside the established public streaming entry point when the use case is inherently a generator. Do not extract methods merely because the public entry point is long. Use the banner and intent-comment structure from section 3.1 to keep the workflow readable.
 
-**Testability trade-off:** Inner functions cannot be tested in isolation. This is acceptable when the parent function's tests exercise all edge cases of the inner logic through the parent's public interface. The goal is to test *behaviour*, not individual functions. If you find that the inner function has complex branching logic that is difficult to cover through the parent, promote it to a private method or a standalone function so it can be tested directly.
+Do not extract single-use or twice-used calculations, validation, persistence, transformation, or external-call blocks. Extract a private method only when the same coherent operation is genuinely called at least three times from the public entry point. This three-call threshold is absolute, including side effects and infrastructure calls. Do not introduce nested functions to bypass it.
 
-```python
-class ReportGenerator:
-    def generate_monthly_report(self, transactions: list[Transaction]) -> Report:
-        def categorise_transaction(transaction: Transaction) -> str:
-            if transaction.amount > 1000:
-                return "high_value"
-            if transaction.is_recurring:
-                return "recurring"
-            return "standard"
-
-        def build_summary_line(category: str, total: float) -> str:
-            return f"{category}: £{total:.2f}"
-
-        categorised = {}
-        for transaction in transactions:
-            category = categorise_transaction(transaction)
-            categorised.setdefault(category, []).append(transaction)
-
-        summary_lines = []
-        for category, group in categorised.items():
-            total = sum(t.amount for t in group)
-            summary_lines.append(build_summary_line(category, total))
-
-        return Report(lines=summary_lines)
-```
+Leave optional aesthetic decomposition of long use-case methods to Kesler. The agent should deliver the complete workflow in one readable public entry point and allow Kesler to decide whether any further extraction improves it.
 
 ---
 
@@ -408,7 +447,45 @@ class ReportGenerator:
 
 Data classes are the foundation of every programme. They store data, enforce business rules, and expose behaviour through methods keeping orchestration code simple and readable.
 
-### 4.1. Private by Default
+### 4.1. Domain Ownership and Canonical State
+
+Create a data class only for a domain concept with an independent identity, lifecycle, invariant, or boundary contract. Do not create models solely to bundle temporary values passed between adjacent blocks of one method.
+
+Keep one canonical owner for each fact. Do not duplicate statuses, summaries, or parallel collections when they can be derived clearly from canonical state. Build DTOs as consumer-specific projections of that state rather than copying internal orchestration fields into the boundary contract.
+
+```python
+# Good: one domain object owns the fulfilment lifecycle
+@dataclass
+class OrderState:
+    order_id: str
+    reserved_items: list[OrderItem]
+    dispatched_items: list[OrderItem]
+
+    @property
+    def is_complete(self) -> bool:
+        return len(self.dispatched_items) == len(self.reserved_items)
+
+
+class OrderResponse(BaseModel):
+    order_id: str
+    is_complete: bool
+
+
+# Bad: temporary wrappers duplicate the same order facts
+@dataclass
+class OrderAssignment:
+    order_id: str
+    reserved_items: list[OrderItem]
+
+
+@dataclass
+class OrderProgress:
+    order_id: str
+    dispatched_items: list[OrderItem]
+    is_complete: bool
+```
+
+### 4.2. Private by Default
 
 Write all class methods as private by default using double-underscore (`__`) name mangling. Only make a method public when it is required by an external consumer. Private instance properties are also declared with `__` prefix.
 
@@ -431,7 +508,7 @@ class Account:
         return self.__is_active and self.__has_positive_balance()
 ```
 
-### 4.2. Tell, Don't Ask
+### 4.3. Tell, Don't Ask
 
 When client code calls multiple getters on the same object and then makes a decision based on the results, that behaviour belongs inside the data class. Move the logic into a method on the class so that consumers *tell* the object what to do rather than *asking* for its internals.
 
@@ -458,7 +535,7 @@ class Account:
 
 A good rule of thumb: be suspicious when client code calls multiple methods on the same object, especially multiple getters. That is often a sign that behaviour belongs inside the data class. Keep behaviour in the orchestration layer only when multiple objects are involved.
 
-### 4.3. Business Rules Close to Data
+### 4.4. Business Rules Close to Data
 
 Business rules like formatting constraints, validation logic, and design decisions, should be defined as methods on the data class they modify. For classes inheriting from `pydantic.BaseModel`, use validators.
 
@@ -482,7 +559,7 @@ class Invoice(BaseModel):
         return f"£{pounds:,.2f}"
 ```
 
-### 4.4. Inheritance Rules for Data Classes
+### 4.5. Inheritance Rules for Data Classes
 
 Data classes inherit from framework base classes only to gain specific behaviour, never for code reuse.
 
@@ -618,6 +695,22 @@ class AgenticRunUseCase:
 ### 5.3. Adapters and Clients
 
 Adapters wrap infrastructure concerns. Clients wrap external libraries and manage credentials. Adapters import clients, not the other way around.
+
+Introduce an abstraction only when it represents a genuine variable dependency, an external system boundary, or multiple concrete implementations. Do not wrap a stable direct library call or local operation in an adapter solely for architectural symmetry. Keep the operation in the owning use case until a real substitution boundary exists.
+
+```python
+# Good: a stable local operation remains in the use case that owns it
+class StartApplicationUseCase:
+    def execute(self, settings_path: Path) -> ApplicationSettings:
+        raw_settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        return ApplicationSettings.model_validate(raw_settings)
+
+
+# Bad: an adapter adds indirection without a variable dependency or boundary
+class LocalSettingsAdapter:
+    def read(self, settings_path: Path) -> dict:
+        return json.loads(settings_path.read_text(encoding="utf-8"))
+```
 
 ```python
 @dataclass
