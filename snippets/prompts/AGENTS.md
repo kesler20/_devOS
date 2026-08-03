@@ -41,7 +41,7 @@ Every programme is composed from a small vocabulary of building blocks.
 
 **Adapters** translate between application language and a genuine external or variable dependency. They are justified by implementation substitution, protocol or schema translation, credentials or connection lifecycle, or dependency-specific failure handling. They interact with third-party services, databases, legacy systems, or other infrastructure boundaries: `TickTickBacklogAdapter`, `SQLDbAdapter`.
 
-**Clients** wrap external libraries or services and manage low-level credentials, connections, and SDK details. Adapters expose application-specific infrastructure operations and may compose clients: `GoogleClient`, `AWSClient`, `RedisClient`.
+**Clients** wrap external libraries or services and manage low-level credentials, connections, and SDK details. Adapters expose application-specific infrastructure operations and may compose provider-specific clients: `OpenAIClient`, `AnthropicClient`, `RedisClient`.
 
 **Ports/Interfaces** define contracts between Use Cases and adapters. They only exist when more than one adapter implements the same piece of infrastructure, otherwise the use case should interact directly with the adapter.
 
@@ -59,6 +59,7 @@ Every programme starts in a single `main.py` file. Write the core logic directly
 
 ```python
 # src/agent_run/main.py
+# Show how a small program evolves from one readable end-to-end routine.
 import logging
 from dataclasses import dataclass
 from enum import Enum
@@ -123,6 +124,7 @@ if __name__ == "__main__":
 Behavioural classes must be named using the abstractions provided by this guide. The only permitted names are **Adapter**, **UseCase**, and **Client**. Generic names like `handler`, `platform`, `processor`, `engine`, `executor`, `manager`, and `service` are not allowed. Use cases represent features of the software and should use language that is understandable in the problem domain.
 
 ```python
+# Compare domain-specific names with prohibited generic abstractions.
 # Good: domain-specific, uses permitted abstractions
 class ToolCallingUseCase: ...
 class StructuredOutputUseCase: ...
@@ -144,6 +146,7 @@ models and represents the domain.
 **No leading underscores on module-level names.** Constants, module-level variables, and any name defined at the top of a file must never begin with `_`. Use plain `UPPER_CASE` for constants. The `__` prefix is only valid inside a class body for private methods and private instance attributes (see section 4.2).
 
 ```python
+# Compare valid module-level names with invalid private-style prefixes.
 # Good
 ALLOWED_TOOLS = "Read,Write,Edit"
 CLAUDE_WORKING_DIRECTORY = Path(configs.PROTOCOL_FOLDER) / "claude"
@@ -156,6 +159,7 @@ _CLAUDE_WORKING_DIRECTORY = Path(configs.PROTOCOL_FOLDER) / "claude"
 **Execute-local helper logic stays inside the public entry point.** If logic serves only one Use Case entry point, keep it inline or define it as a nested function subject to section 3.5. Do not promote it to a `__private_method` merely because the entry point is long. Kesler decides whether a nested function should become a class method. Standalone module-level helper functions are only acceptable when they are genuinely reused across multiple classes or modules.
 
 ```python
+# Keep entry-point-specific behaviour local to the entry point.
 # Good: helper remains local to the entry point that uses it
 class AgenticWorkflowUseCase:
     def execute(self) -> None:
@@ -185,6 +189,7 @@ Dynamic types like raw strings, bare dictionaries, and plain tuples create ambig
 Whenever a string or number represents a specific state, status code, or finite set of values, define it as an `Enum`. This groups related properties together, provides IDE autocomplete, and prevents invalid values at compile time.
 
 ```python
+# Constrain domain states and protocol codes to explicit finite sets.
 from enum import Enum
 
 
@@ -203,6 +208,7 @@ class HttpStatusCode(int, Enum):
 When a string must be one of a known set but does not warrant a full enum, use a `Literal` type.
 
 ```python
+# Constrain a lightweight string setting without introducing a full enum.
 import typing
 
 LogLevel = typing.Literal["DEBUG", "INFO", "WARNING", "ERROR"]
@@ -213,6 +219,7 @@ LogLevel = typing.Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 Never use naked dictionaries to pass data through the programme. Use `dataclass` by default, `pydantic.BaseModel` when you need contractual validation, or `TypedDict` when you only need the type signature without object instantiation.
 
 ```python
+# Compare the three supported ways to replace ambiguous dictionaries.
 from dataclasses import dataclass
 from pydantic import BaseModel
 from typing import TypedDict
@@ -244,6 +251,7 @@ class FilterOptions(TypedDict):
 Replace bare tuples with `NamedTuple` to give each position a descriptive name.
 
 ```python
+# Replace positional tuples with named result fields.
 from typing import NamedTuple
 
 
@@ -270,40 +278,74 @@ print(result.tool_name)  # instead of result[0]
 
 **Comments** describe the *intent* of a block before you write it. Write a comment explaining what you are about to do, then write the code. If the code is self-explanatory after you have written it, the comment can stay as a section label or be removed.
 
+Every executable code example in this guide includes an ordinary comment that explains the example's purpose or the intent of its main block. Labels such as `Good` and `Bad` may supplement that comment but do not replace it.
+
 Use banner comments only when a Use Case entry point implements a genuinely complex, multipart workflow with several distinct domain stages. Do not add banners to short or straightforward `execute()` methods. When banners are warranted, divide the entry point into major domain stages and add an ordinary comment beneath each banner describing the purpose of the whole block and the state it establishes. Comments should explain intent and domain progression, not translate individual lines. A long entry point with a visible workflow is preferable to a short one whose workflow is scattered across private methods.
 
 ```python
+# Coordinate validation, stock, payment, and dispatch as one multipart workflow.
 class FulfilOrderUseCase:
     def execute(self, order: Order) -> FulfilmentResult:
-        # ======================== #
-        #                          #
-        #   RESERVE ORDER STOCK    #
-        #                          #
-        # ======================== #
+        # ============================ #
+        #                              #
+        #   VALIDATE ORDER CUSTOMER    #
+        #                              #
+        # ============================ #
 
-        # Reserve every requested item and record what can be fulfilled.
+        # Establish whether the customer and delivery address can fulfil the order.
+        customer = self.customer_adapter.find_by_id(order.customer_id)
+        address = self.address_adapter.validate(order.delivery_address)
+        order_can_be_fulfilled = customer.is_active and address.is_serviceable
+        if not order_can_be_fulfilled:
+            return FulfilmentResult.rejected(order.id)
+
+        # ============================ #
+        #                              #
+        #   RESERVE INVENTORY ITEMS    #
+        #                              #
+        # ============================ #
+
+        # Reserve every item while retaining enough state to release partial work.
         reserved_items = []
         for item in order.items:
-            if item.quantity <= self.stock_by_product[item.product_id]:
-                reserved_items.append(item)
+            reservation = self.inventory_adapter.reserve(
+                product_id=item.product_id,
+                quantity=item.quantity,
+            )
+            if reservation is None:
+                self.inventory_adapter.release_all(reserved_items)
+                return FulfilmentResult.awaiting_stock(order.id, item.product_id)
+            reserved_items.append(reservation)
 
-        # ======================== #
-        #                          #
-        #   CALCULATE PAYMENT      #
-        #                          #
-        # ======================== #
+        # ============================ #
+        #                              #
+        #   AUTHORISE ORDER PAYMENT    #
+        #                              #
+        # ============================ #
 
-        # Calculate the amount payable from the stock that was actually reserved.
-        amount_due = sum(item.unit_price * item.quantity for item in reserved_items)
+        # Calculate the final amount and release inventory if payment is declined.
+        subtotal = sum(item.total_price for item in reserved_items)
+        delivery_charge = self.delivery_adapter.quote(address, reserved_items)
+        amount_due = subtotal + delivery_charge
+        payment = self.payment_adapter.authorise(customer, amount_due)
+        if not payment.is_authorised:
+            self.inventory_adapter.release_all(reserved_items)
+            return FulfilmentResult.payment_declined(order.id)
 
-        # ======================== #
-        #                          #
-        #   BUILD THE RESULT       #
-        #                          #
-        # ======================== #
+        # ============================ #
+        #                              #
+        #   ARRANGE ORDER DISPATCH     #
+        #                              #
+        # ============================ #
 
-        # Return the final fulfilment state produced by the preceding stages.
-        return FulfilmentResult(items=reserved_items, amount_due=amount_due)
+        # Schedule the shipment and project the completed workflow into the response.
+        shipment = self.delivery_adapter.schedule(address, reserved_items)
+        return FulfilmentResult.confirmed(
+            order_id=order.id,
+            payment_id=payment.id,
+            shipment_id=shipment.id,
+            amount_due=amount_due,
+        )
 ```
 
 **Logging** belongs at system boundaries, not after every operation. Log at the entry and exit of use case `execute` methods, when crossing adapter boundaries (external calls, database queries), and when errors or unexpected conditions occur. 
@@ -340,7 +382,8 @@ Write variable names without abbreviations so that the code reads without commen
 Name the current domain fact rather than the calculation or temporary mechanism that produced it. Prefer `order_is_ready_for_dispatch` and `current_batch_number` over names such as `condition_result`, `calculated_index`, or `assignment_data`.
 
 ```python
-# Good: reads like prose, no comments needed
+# Compare descriptive domain names with abbreviated equivalents.
+# Good: reads like prose
 def calculate_discounted_price(original_price: float, discount_percentage: float) -> float:
     discount_amount = original_price * (discount_percentage / 100)
     discounted_price = original_price - discount_amount
@@ -358,6 +401,7 @@ def calc_price(op: float, dp: float) -> float:
 When a function has multiple validation paths, use guard clauses at the top to exit early. This avoids deep nesting and makes the happy path immediately visible. For simple binary conditions, a single `if`/`else` is acceptable.
 
 ```python
+# Keep invalid paths at the top so the successful workflow remains visible.
 def process_order(order: Order) -> str:
     if not order.is_valid():
         return "Order is invalid."
@@ -374,6 +418,7 @@ def process_order(order: Order) -> str:
 When a boolean, arithmetic, indexing, or lookup expression requires mental calculation, store the result in a descriptively named variable. This turns opaque logic into readable intent and gives subsequent code a domain fact it can reuse.
 
 ```python
+# Name availability once and reuse it when deciding whether to calculate a price.
 def calculate_price_if_available(product: Product, quantity: int) -> float | None:
     product_is_available = (
         product.qty > 0
@@ -392,6 +437,7 @@ def calculate_price_if_available(product: Product, quantity: int) -> float | Non
 For ordered physical or workflow processes, prefer explicit counters and state progression over repeatedly reconstructing state from a global index. Avoid modulo, floor division, nested offsets, or equivalent arithmetic when named state variables express the process more directly. Once a fact has been established during the current iteration, reuse it instead of independently recalculating it later.
 
 ```python
+# Compare explicit production state with repeated index arithmetic.
 # Good: the variables describe the production process directly
 current_batch_number = 1
 items_processed_in_batch = 0
@@ -423,21 +469,31 @@ for item_index, item in enumerate(production_items):
 Do not create a helper function whose body is a single-expression return when it has only one caller. Assign the expression to a descriptively named variable directly in the code that uses it — the variable name does the job the function name would have done, without the indirection.
 
 ```python
-# Good: the expression lives at its single use site as a named variable
-def _validate_recipients(self, recipients: list[str]) -> list[str]:
-    valid_recipients = []
-    for recipient in recipients:
-        clean_recipient = recipient.strip()
-        is_valid_email = bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", clean_recipient))
-        if not is_valid_email:
-            raise ValueError(f"Invalid recipient email address: {clean_recipient}")
-        valid_recipients.append(clean_recipient)
-    return valid_recipients
+# Compare an inline named expression with a single-use private helper.
+# Good: the expression remains at its single use site.
+class SendInvitationsUseCase:
+    def execute(self, recipients: list[str]) -> list[str]:
+        # Validate each cleaned address while keeping the workflow visible.
+        valid_recipients = []
+        for recipient in recipients:
+            clean_recipient = recipient.strip()
+            is_valid_email = bool(
+                re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", clean_recipient)
+            )
+            if not is_valid_email:
+                raise ValueError(f"Invalid recipient email address: {clean_recipient}")
+            valid_recipients.append(clean_recipient)
+        return valid_recipients
 
 
-# Bad: a one-line helper that only _validate_recipients ever calls
-def _is_valid_email(self, value: str) -> bool:
-    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value))
+# Bad: the private helper hides a simple expression used by one entry point.
+class IndirectSendInvitationsUseCase:
+    def execute(self, recipients: list[str]) -> list[str]:
+        # Route every address through an unnecessary layer of indirection.
+        return [recipient for recipient in recipients if self.__is_valid_email(recipient)]
+
+    def __is_valid_email(self, value: str) -> bool:
+        return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value))
 ```
 
 ### 3.5. Local Functions Inside Use-Case Entry Points
@@ -463,6 +519,7 @@ Create a data class only for a domain concept with an independent identity, life
 Keep one canonical owner for each fact. Do not duplicate statuses, summaries, or parallel collections when they can be derived clearly from canonical state. Build DTOs as consumer-specific projections of that state rather than copying internal orchestration fields into the boundary contract.
 
 ```python
+# Compare one canonical order lifecycle with duplicated temporary wrappers.
 # Good: one domain object owns the fulfilment lifecycle
 @dataclass
 class OrderState:
@@ -503,6 +560,7 @@ This rule applies only after behaviour has been shown to belong on the class. It
 This convention applies **only within class definitions**. Never use underscore prefixes on module-level variables, standalone functions, or local variables inside functions.
 
 ```python
+# Keep internal state and supporting behaviour private to the domain object.
 from dataclasses import dataclass
 
 
@@ -524,6 +582,7 @@ class Account:
 When client code calls multiple getters on the same object and then makes a decision based on the results, that behaviour belongs inside the data class. Move the logic into a method on the class so that consumers *tell* the object what to do rather than *asking* for its internals.
 
 ```python
+# Compare caller-owned decisions with behaviour owned by the domain object.
 # Bad: the caller interrogates the object and decides
 def check_account(account: Account) -> bool:
     return account.balance > 0 and account.is_active and account.currency == "GBP"
@@ -551,6 +610,7 @@ A good rule of thumb: be suspicious when client code calls multiple methods on t
 Business rules like formatting constraints, validation logic, and design decisions, should be defined as methods on the data class they modify. For classes inheriting from `pydantic.BaseModel`, use validators.
 
 ```python
+# Keep invoice validation and presentation rules beside the invoice data.
 from pydantic import BaseModel, field_validator
 
 
@@ -575,6 +635,7 @@ class Invoice(BaseModel):
 Data classes inherit from framework base classes only to gain specific behaviour, never for code reuse.
 
 ```python
+# Match each data class to the framework behaviour it genuinely requires.
 import abc
 from dataclasses import dataclass
 from pydantic import BaseModel
@@ -642,12 +703,13 @@ Every Use Case has an `execute` method as its primary entry point. Dependencies 
 A capability does not need multiple callers to qualify. A Use Case may also expose additional public methods when they represent closely related operations on the same domain concept. All public methods on the class must share the same dependencies and belong to the same logical feature.
 
 ```python
+# Orchestrate tool selection, model calls, and response projection in one capability.
 from dataclasses import dataclass
 
 
 @dataclass
 class ToolCallingUseCase:
-    chat_client: ChatModelClient
+    chat_model_adapter: ChatModelAdapter
     tool_registry: ToolRegistryAdapter
 
     def execute(self, run_input: AgentRunInput) -> AgentRunSummary:
@@ -657,7 +719,7 @@ class ToolCallingUseCase:
         def call_tools(tools: list[Tool]) -> list[ToolResult]:
             results = []
             for step in range(run_input.max_steps):
-                response = self.chat_client.generate(run_input.prompt, tools)
+                response = self.chat_model_adapter.generate(run_input.prompt, tools)
                 if response.has_tool_call():
                     result = self.tool_registry.invoke(response.tool_call)
                     results.append(result)
@@ -684,6 +746,7 @@ class ToolCallingUseCase:
 Because each Use Case is a class with injected dependencies, independently meaningful capabilities compose naturally. A higher-level Use Case may call a lower-level one when the lower-level entry point accepts meaningful application input and returns a complete result without depending on transient internal state owned by its caller. Reuse across several workflows is useful evidence, but it is not required. An internal workflow step that cannot stand alone remains inline or becomes a nested function under section 3.5.
 
 ```python
+# Compose complete application capabilities through their public entry points.
 @dataclass
 class AgenticRunUseCase:
     tool_calling: ToolCallingUseCase
@@ -719,6 +782,7 @@ Classify extracted behaviour in this order:
 5. Create a client for low-level SDK, credential, connection, or transport concerns used by an adapter.
 
 ```python
+# Compare direct local work with an adapter that has no genuine boundary.
 # Good: a stable local operation remains in the use case that owns it
 class StartApplicationUseCase:
     def execute(self, settings_path: Path) -> ApplicationSettings:
@@ -733,6 +797,7 @@ class LocalSettingsAdapter:
 ```
 
 ```python
+# Translate application database operations through a provider-specific client.
 @dataclass
 class PostgresDatabaseAdapter:
     __client: PostgresClient
@@ -760,6 +825,7 @@ class PostgresDatabaseAdapter:
 Create a port only when more than one adapter implements the same functionality. The port holds the single source of truth for the method signature and docstring. Adapters implement the port but do not repeat the signature documentation.
 
 ```python
+# Share one application contract across two provider-specific adapters.
 import abc
 
 
@@ -784,16 +850,23 @@ class ChatModelPort(abc.ABC):
         ...
 
 
-class OpenAIChatAdapter(ChatModelPort):
+@dataclass
+class OpenAIChatModelAdapter(ChatModelPort):
+    __client: OpenAIClient
+
     def generate(self, prompt, tools=None):
-        # No docstring here — the port is the single source of truth.
-        raw_response = self._client.chat_completions_create(prompt, tools)
+        # Translate the OpenAI-specific response into the application contract.
+        raw_response = self.__client.chat_completions_create(prompt, tools)
         return ChatResponse.from_openai(raw_response)
 
 
-class AnthropicChatAdapter(ChatModelPort):
+@dataclass
+class AnthropicChatModelAdapter(ChatModelPort):
+    __client: AnthropicClient
+
     def generate(self, prompt, tools=None):
-        raw_response = self._client.messages_create(prompt, tools)
+        # Translate the Anthropic-specific response into the application contract.
+        raw_response = self.__client.messages_create(prompt, tools)
         return ChatResponse.from_anthropic(raw_response)
 ```
 
@@ -814,6 +887,7 @@ Use the NumPy format. Only add docstrings to functions that are not self-explana
 Only include the `Side Effects` section when the function has side effects such as logging, printing, or writing to a database. Only include the `Examples` section for complex functions.
 
 ```python
+# Demonstrate the required NumPy docstring sections on a non-trivial public function.
 def add_numbers(param_1: int, param_2: int) -> str:
     """
     Add two numbers.
@@ -849,6 +923,7 @@ def add_numbers(param_1: int, param_2: int) -> str:
 Import modules, not individual names. This keeps the origin of every symbol explicit and avoids namespace collisions.
 
 ```python
+# Keep imported symbols qualified so their module of origin remains visible.
 import typing
 import abc
 
@@ -872,6 +947,7 @@ class MyClass(abc.ABC):
 When a file contains large groups of related code (such as routes grouped by resource or adapters grouped by client), use block comment dividers to create visual sections.
 
 ```python
+# Group related OAuth routes while keeping the purpose of each group explicit.
 from infrastructure.router.app import app
 import use_cases.use_cases as use_cases
 import infrastructure.adapters as adapters
@@ -884,6 +960,7 @@ import fastapi.responses as responses
 #                          #
 # =========================#
 
+# Handle the TickTick login and callback flow as one route group.
 
 @app.get("/ticktick/login")
 def ticktick_login(request: fastapi.Request):
@@ -909,6 +986,7 @@ async def ticktick_callback(request: fastapi.Request, code: str, state: str):
 #                        #
 # =======================#
 
+# Handle the Mendeley login flow as a separate route group.
 
 @app.get("/mendeley/login")
 def mendeley_login(request: Request):
@@ -923,6 +1001,7 @@ def mendeley_login(request: Request):
 When you are confident that a value has a specific type but the type checker cannot infer it, use `typing.cast` to make the assertion explicit. Never use `# type: ignore` or bare `Any` as a workaround — `typing.cast` documents the intent and keeps the type system honest.
 
 ```python
+# Make justified type assertions visible without disabling type checking.
 import typing
 
 
@@ -948,8 +1027,10 @@ Do not worry about backward compatibility. When renaming, removing, or changing 
 
 Every use case gets a test, and every adapter/client gets a test — not just
 when a feature happens to touch one. Add smoke tests and regression tests as
-their own categories on top of that, per 7.3 and 7.4 below. Only test at the
-interface between layers — never test internal data classes, ports, or
+their own categories on top of that, per 7.3 and 7.4 below. Prioritise tests at
+the public interfaces between layers. Test a domain data class directly when it
+owns non-trivial business rules, invariants, or validation that are clearer to
+exercise on the object itself. Do not test passive field storage, ports, or
 framework boilerplate in isolation.
 
 Always add mocks and test infrastructure where possible, such as a test database, so use cases and adapters can be exercised without hitting real external systems.
@@ -969,12 +1050,13 @@ tests/
 Inject mock dependencies to test use cases in isolation.
 
 ```python
+# Verify the Use Case through its application-facing adapter contract.
 def test_tool_calling_use_case_returns_complete_summary():
-    mock_client = MockChatModelClient(responses=["search result"])
+    mock_chat_model_adapter = MockChatModelAdapter(responses=["search result"])
     mock_registry = MockToolRegistryAdapter(tools=[search_tool])
 
     use_case = ToolCallingUseCase(
-        chat_client=mock_client,
+        chat_model_adapter=mock_chat_model_adapter,
         tool_registry=mock_registry,
     )
 
@@ -990,6 +1072,7 @@ Whenever a bug is discovered, write a test that reproduces it in `test_bugs.py`.
 
 ```python
 # tests/test_bugs.py
+# Preserve the corrected handling of empty tool output.
 
 def test_empty_tool_result_does_not_crash():
     """Regression: empty output_text caused IndexError in strip pipeline."""
@@ -1004,14 +1087,15 @@ A `Fake*`/`Mock*` class needed by two or more test files belongs in `conftest.py
 
 ```python
 # tests/conftest.py
+# Share a response double used across multiple test modules.
 
 class FakeResponse:
     def __init__(self, json_data: dict, status_code: int = 200) -> None:
-        self._json_data = json_data
+        self.__json_data = json_data
         self.status_code = status_code
 
     def json(self) -> dict:
-        return self._json_data
+        return self.__json_data
 ```
 
 ### 7.4. Smoke Tests
@@ -1020,6 +1104,7 @@ A smoke test asserts a repo-wide invariant rather than one component's behavior 
 
 ```python
 # tests/test_repo_hygiene.py
+# Protect repository-wide state-folder invariants from silent drift.
 
 def test_agent_state_folder_exists() -> None:
     assert (ROOT / "@db").is_dir()
@@ -1254,6 +1339,7 @@ A page's header additionally states what the page lists/renders and what the pri
 Use these sections in this order. Keep each section short.
 Block comments MUST have exactly 5 lines. 3-line block comments are categorically forbidden.
 ```tsx
+// Keep a complex page readable by separating its major lifecycle stages.
 export default function SomePage() {
   
   // ====================== //
@@ -1319,6 +1405,7 @@ Keep an “OBSERVE STATE” section near the top of the page component and log t
 Example:
 
 ```ts
+// Keep important page state visible together during development.
 console.log("items", items);
 console.log("selectedCollectionId", selectedCollectionId);
 console.log("hasUnsavedChanges", hasUnsavedChanges);
@@ -1331,6 +1418,7 @@ Always add JSX comments to separate major UI regions.
 Example:
 
 ```tsx
+/* Separate the page's major visual regions in the JSX. */
 return (
   <div>
     {/* Top bar */}
@@ -1355,6 +1443,7 @@ Prefer `useState` unless the state transitions are genuinely complex.
 #### Update an object by field (guard + shallow copy)
 
 ```ts
+// Update one object only when the current entity matches the requested target.
 setItem((prev) => {
   if (prev.id !== itemId) return prev;
   return { ...prev, [field]: value };
@@ -1364,6 +1453,7 @@ setItem((prev) => {
 #### Update an array item (map + guard)
 
 ```ts
+// Replace only the matching array item while preserving every other item.
 setItems((prev) =>
   prev.map((it) => (it.id !== itemId ? it : { ...it, [field]: value }))
 );
@@ -1372,24 +1462,28 @@ setItems((prev) =>
 #### Append to an array
 
 ```ts
+// Append a new item without mutating the existing array.
 setItems((prev) => [...prev, newItem]);
 ```
 
 #### Replace an object
 
 ```ts
+// Replace the current object when no previous fields need to be retained.
 setCollection(newCollection);
 ```
 
 #### Delete from an array
 
 ```ts
+// Remove the matching item without mutating the existing array.
 setItems((prev) => prev.filter((it) => it.id !== itemId));
 ```
 
 #### Append into an array field (within an object)
 
 ```ts
+// Append a nested value while preserving the other object fields.
 setItem((prev) => {
   if (prev.id !== itemId) return prev;
   return { ...prev, tags: [...prev.tags, newTag] };
@@ -1421,13 +1515,14 @@ Rule: each page is responsible for its own state. Avoid cross-page shared state 
 Define prop types inline on the component function. Never define a separate `type Props = { ... }` unless that type is explicitly referenced elsewhere in the code (e.g. passed to a utility function or imported by another module).
 
 ```tsx
-// CORRECT — inline
+// Compare inline props with an unnecessary single-use alias.
+// CORRECT: inline
 function ItemRow(props: {
   item: Item;
   onEventDeleteItem: (itemId: string) => void;
 }) { ... }
 
-// WRONG — separate type that is never referenced elsewhere
+// WRONG: separate type that is never referenced elsewhere
 type ItemRowProps = { item: Item; onEventDeleteItem: (itemId: string) => void };
 function ItemRow(props: ItemRowProps) { ... }
 ```
@@ -1439,7 +1534,8 @@ Rows, groups, grids, and overall structural `div`/`span` wrappers belong in the 
 Keep the skeleton of the layout visible at the page level so the structure is easy to scan.
 
 ```tsx
-// CORRECT — structure is in the page
+// Compare page-owned layout with layout hidden inside a child component.
+// CORRECT: structure is in the page
 return (
   <div className="grid grid-cols-2 gap-4">
     {items.map((item) => (
@@ -1448,7 +1544,7 @@ return (
   </div>
 );
 
-// WRONG — grid is hidden inside ItemCard
+// WRONG: grid is hidden inside ItemCard
 function ItemCard(props: { ... }) {
   return (
     <div className="grid grid-cols-2 gap-4"> {/* structural layout belongs in the page */}
@@ -1475,6 +1571,7 @@ Rules:
 Example:
 
 ```ts
+// Load typed backend data and surface either the result or a contextual failure.
 import DatabaseInterface from "../../DatabaseInterface";
 import toastFactory, { MessageSeverity } from "../../components/ToastMessage";
 import * as Schema from "../../schema";
@@ -1506,6 +1603,7 @@ Important Note: DO NOT Create the DatabaseInterface class if you can't find it, 
 Examples:
 
 ```tsx
+/* Use direct Tailwind strings and a simple ternary for conditional styling. */
 <div className="flex items-center gap-2" />
 
 <button className={isActive ? "bg-slate-900 text-white" : "bg-white text-slate-900"} />
@@ -1523,6 +1621,7 @@ Default mental model:
 * The page is the container.
 
 ```tsx
+// Keep state, lifecycle events, and page structure together in the container.
 import * as React from "react";
 
 type Item = { id: string; label: string; done: boolean };
@@ -1693,6 +1792,7 @@ Rules:
 ### 9.1 Example: `src/pages/item_collection/state/reducer.ts`
 
 ```ts
+// Centralise related page transitions in one reducer.
 export type Item = { id: string; label: string; done: boolean };
 export type ItemCollection = { id: string; name: string; items: Item[] };
 
@@ -1761,6 +1861,7 @@ export function reducer(state: State, event: PageEvent): State {
 ### 9.2 Example Page Usage
 
 ```tsx
+// Drive the page through the reducer while keeping the rendered structure visible.
 import * as React from "react";
 import { reducer, State, PageEvent, Item } from "./state/reducer";
 
@@ -1820,11 +1921,12 @@ When using `xstate`:
 Do not add explanatory hint text, status captions, or helper descriptions next to a UI element unless specifically asked for. A control should be self-evident from its own label or icon; don't pair it with a sentence describing what it does or what state it's in.
 
 ```tsx
-// WRONG — hint text nobody asked for
+// Compare unsolicited helper copy with a self-explanatory control.
+// WRONG: hint text nobody asked for
 <p>Active diet: {activeDiet.name} {activeDiet.finalizedAt ? "(finalized)" : "(not finalized)"}</p>
 <Button onClick={finalizeDiet}>Finalize Diet</Button>
 
-// CORRECT — the control speaks for itself
+// CORRECT: the control speaks for itself
 <Switch checked={isActive} onChange={handleEventToggle} />
 ```
 
@@ -1846,177 +1948,47 @@ Do not add explanatory hint text, status captions, or helper descriptions next t
   - messages: contains the domain messages such as `UserCreated`, `OrderPlaced`, etc..
   - errors: contains the domain errors such as `UserNotFound`, `OrderNotFound`, etc..
 - `use_cases` folder:
-  - contains the use case services for the application such as `create_user`,
-    `place_order`, etc..
-    - the use cases are pure functions that are decoupled from the infrastructure,
-      they transform data transfer objects (DTOs) such as `CreateUserRequest` and
-      `CreateUserResponse`
-    - as such the use cases should never implement adapters or external dependencies,
-      they should only use the domain entities, messages, data transfer objects and
-      interfaces such as ports
+  - contains Use Case classes such as `CreateUserUseCase` and `PlaceOrderUseCase`
+  - each Use Case exposes `execute()` as its primary public entry point and follows
+    the behavioural-class rules in section 5
+  - Use Cases orchestrate domain entities, messages, DTOs, and injected adapters or
+    ports without constructing clients or implementing infrastructure themselves
   - contains the schema file which defines the data transfer objects (DTOs) such as
     `CreateUserRequest` and `CreateUserResponse` using `pydantic.BaseModel`
 - infrastructure folder:
   - contains the routers for the application such as user_router, order_router, etc..
-  - contains the ports which are interfaces for the application using abstract base
-    classes (ABCs) such as Repository, Connector, etc..
-  - contains the adapters which are implementations of the ports for the application
-    using different technologies such as SQLAlchemy, Redis, etc..
+  - contains a port only when multiple adapters implement the same application-facing
+    capability
+  - contains concrete adapters for technologies such as SQLAlchemy and Redis, which
+    implement a port only when that shared port is justified
   - contains other infrastructure components such as auth, logging, and external
     configuration management, drivers, emails and notifications, etc... as such
 
 ### 1.3. Data Flow
 
-dataflow should be unidirectional:
+Runtime flow should remain explicit and unidirectional:
 
-domain -> use_cases -> infrastructure
+route or message handler -> Use Case -> domain objects and injected adapters -> clients or external systems
 
-### 1.4. Example of each layer
-```python
-# domain/entities.py
-import pydantic
-import uuid
-
-class User(pydantic.BaseModel):
-    id: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    email: str
-
-# use_cases/schema.py
-import pydantic
-
-class CreateUserRequest(pydantic.BaseModel):
-    name: str
-    email: str
-
-class CreateUserResponse(pydantic.BaseModel):
-    id: str
-    name: str
-    email: str
-
-# use_cases/use_cases.py
-import domain.entities as entities
-import use_cases.schema as schema
-import infrastructure.ports as ports
-
-def create_user(request:schema.CreateUserRequest, db: ports.Repository) -> schema.CreateUserResponse:
-    user = entities.User(name=request.name, email=request.email)
-    db.add(user)
-    return schema.CreateUserResponse(id=user.id, name=user.name, email=user.email)
-
-# infrastructure/ports.py
-import abc
-import typing
-
-class Repository(abc.ABC):
-    """
-    Abstract base class for repository.
-    """
-
-    @abc.abstractmethod
-    def add(self, entity: typing.Any) -> None:
-        """
-        Add an entity to the repository.
-
-        Parameters
-        ----------
-        entity : Any
-            The entity to add to the repository.
-        """
-        pass
-
-    @abc.abstractmethod
-    def get(self, model_class: type, entity_id: str) -> typing.Any:
-        """
-        Get an entity from the repository by its ID.
-
-        Parameters
-        ----------
-        model_class: type
-	        The type of the entity object.
-        entity_id : str
-            The ID of the entity to get from the repository.
-
-        Returns
-        -------
-        Any
-            The entity from the repository.
-        """
-        pass
-
-# infrastructure/adapters.py
-from sqlalchemy.orm import Session
-import infrastructure.ports as ports
-	
-
-class SQLAlchemyRepositoryAdapter(ports.Repository):
-
-    def __init__(self, session: Session):
-        self.session = session
-
-    def add(self, entity):
-        self.session.add(entity)
-        self.session.commit()
-
-    def get(self, model_class, entity_id: str):
-        return self.session.get(model_class, entity_id)
-
-def get_db():
-    """
-    Dependency to get the SQLAlchemy session.
-
-    Returns
-    -------
-    SQLAlchemyRepositoryAdapter
-        An instance of the SQLAlchemyRepositoryAdapter.
-    """
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    engine = create_engine("sqlite:///./test.db")
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-    try:
-        yield SQLAlchemyRepositoryAdapter(db)
-    finally:
-        db.close()
-
-# infrastructure/routers.py
-import fastapi
-import uvicorn 
-import use_cases.schema as schema
-import use_cases.use_cases as use_cases
-import infrastructure.adapters as adapters
-
-app = fastapi.FastAPI()
-
-@app.post("/v1/users/", response_model=schema.CreateUserResponse)
-def create_user(
-    request: schema.CreateUserRequest,
-    db: adapters.SQLAlchemyRepositoryAdapter = fastapi.Depends(adapters.get_db)
-):
-    return use_cases.create_user(request, db)
-
-if __name__ == "__main__":
-    uvicorn.run(app, port=8000)
-```
-
-### 1.5. Implementing Adapters
+### 1.4. Implementing Adapters
 
 to implement adapters, first implement the various functions of the external module
 or class in a separate file in the infrastructure folder, i.e. `MendeleyClient` in
 `infrastructure/connectors/mendeley_client.py`, then implement the adapter in a
 separate file in the infrastructure folder, i.e.
-`MendeleyConnectorAdapter(ports.Connector)` in `infrastructure/adapters.py`
+`MendeleyConnectorAdapter` in `infrastructure/adapters.py`
 
 or another example: for a payment processor , first implement the payment processor
 client in a separate file in the infrastructure folder, i.e. `StripeClient` in
 `infrastructure/payment_processor/stripe_client.py`, then implement the adapter in a
 separate file in the infrastructure folder, i.e.
-`StripePaymentProcessorAdapter(ports.PaymentProcessor)` in
-`infrastructure/adapters.py`.
+`StripePaymentProcessorAdapter` in `infrastructure/adapters.py`.
 
-### 1.6. Implementing Routers
+Create a port only when multiple adapters implement the same application-facing
+capability. When only one adapter exists, inject that concrete adapter directly into
+the Use Case.
+
+### 1.5. Implementing Routers
 
 always add the version to the router path and the resource name in plural i.e.
 `/v1/users/`, `/v1/orders/`, etc.
