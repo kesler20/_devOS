@@ -141,7 +141,7 @@ that term does not itself describe a domain concept. Follow the naming
 conventions already used in the codebase instead, consistent with how it already
 models and represents the domain.
 
-**No leading underscores on module-level names.** Constants, module-level variables, and any name defined at the top of a file must never begin with `_`. Use plain `UPPER_CASE` for constants. The `_` prefix is only valid inside a class body for private methods and private instance attributes (see section 4.2).
+**No leading underscores on module-level names.** Constants, module-level variables, and any name defined at the top of a file must never begin with `_`. Use plain `UPPER_CASE` for constants. The `__` prefix is only valid inside a class body for private methods and private instance attributes (see section 4.2).
 
 ```python
 # Good
@@ -276,7 +276,9 @@ Use banner comments only when a Use Case entry point implements a genuinely comp
 class FulfilOrderUseCase:
     def execute(self, order: Order) -> FulfilmentResult:
         # ======================== #
+        #                          #
         #   RESERVE ORDER STOCK    #
+        #                          #
         # ======================== #
 
         # Reserve every requested item and record what can be fulfilled.
@@ -286,14 +288,18 @@ class FulfilOrderUseCase:
                 reserved_items.append(item)
 
         # ======================== #
+        #                          #
         #   CALCULATE PAYMENT      #
+        #                          #
         # ======================== #
 
         # Calculate the amount payable from the stock that was actually reserved.
         amount_due = sum(item.unit_price * item.quantity for item in reserved_items)
 
         # ======================== #
+        #                          #
         #   BUILD THE RESULT       #
+        #                          #
         # ======================== #
 
         # Return the final fulfilment state produced by the preceding stages.
@@ -436,7 +442,7 @@ def _is_valid_email(self, value: str) -> bool:
 
 ### 3.5. Local Functions Inside Use-Case Entry Points
 
-Keep use-case orchestration inside `execute()`, or inside the established public streaming entry point when the Use Case is inherently a generator. A long, readable entry point is always preferable to decomposition into class-private methods. Use the banner and intent-comment structure from section 3.1 only for genuinely complex, multipart workflows. Leave short and straightforward entry points unsectioned.
+Keep use-case orchestration inside `execute()`, or inside the established public entry point for the Use Case. A long, readable entry point is always preferable to decomposition into class-private methods. Use the banner and intent-comment structure from section 3.1 only for genuinely complex, multipart workflows. Leave short and straightforward entry points unsectioned.
 
 A public entry point may contain at most three nested functions, with at most one nested function in each banner section. These are maximums, not targets. A single-use nested function is acceptable when it names a substantial, cohesive operation and materially improves the readability of that section.
 
