@@ -6,7 +6,7 @@ from adapters_clients.redis.key_value_adapters import (
     FileKeyValueAdapter,
     JSONFileCacheAdapter,
     RedisHashNoSQLAdapter,
-    RedisKeyValueAdapter,
+    RedisNoSQLAdapter,
     RedisTimeSeriesAdapter,
 )
 
@@ -92,7 +92,7 @@ def test_dynamo_key_value_adapter() -> None:
 
 def test_redis_key_value_adapter() -> None:
     redis = FakeRedis()
-    adapter = RedisKeyValueAdapter(redis)
+    adapter = RedisNoSQLAdapter(redis)
 
     assert adapter.put("settings", {"theme": "dark"}) is True
     assert json.loads(redis.values["settings"]) == {"theme": "dark"}

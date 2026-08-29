@@ -1,4 +1,7 @@
 from __future__ import annotations
+import dataclasses
+import json
+import re
 import pydantic
 import typing
 import enum
@@ -621,3 +624,157 @@ class ProjectConfigSchema(pydantic.BaseModel):
     project_name: str
     home_root: HomeRootConfig
     project_root: ProjectSpecificConfig
+
+
+# ================================= #
+#                                   #
+#   CREDENTIALS MANAGER ENTITIES    #
+#                                   #
+# ================================= #
+
+
+JSONValue: typing.TypeAlias = (
+    None | bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"]
+)
+
+BOOTSTRAP_VARIABLE_PREFIX = "devos_"
+
+
+def is_bootstrap_variable(key: str) -> bool:
+    """Check whether a name addresses the credential database's own connection.
+
+    The comparison ignores case so that `devos_redis_host` and
+    `DEVOS_REDIS_HOST` are the same reserved name, since Windows treats
+    environment variables case-insensitively while Linux does not.
+    """
+    return key.lower().startswith(BOOTSTRAP_VARIABLE_PREFIX)
+ENVIRONMENT_KEY_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+@dataclasses.dataclass
+class CredentialBundle:
+    """Own one validated group of credential values."""
+
+    __values: dict[str, JSONValue] # type: ignore
+
+    @classmethod
+    def empty(cls) -> CredentialBundle:
+        """Create an empty credential bundle."""
+        return cls({})
+
+    @classmethod
+    def from_json_value(cls, value: JSONValue, storage_key: str) -> CredentialBundle:
+        """Validate a Redis JSON document as a credential bundle."""
+        if not isinstance(value, dict):
+            raise ValueError(f"Credential bundle '{storage_key}' is not a JSON object.")
+
+        validated_values: dict[str, JSONValue] = {}
+        for key, credential_value in value.items():
+            cls.validate_key(key)
+            validated_values[key] = credential_value
+        return cls(validated_values)
+
+    @staticmethod
+    def validate_key(key: str) -> None:
+        """Validate one non-bootstrap environment variable name."""
+        if not ENVIRONMENT_KEY_PATTERN.fullmatch(key):
+            raise ValueError(f"Invalid environment variable name: {key}")
+        if is_bootstrap_variable(key):
+            raise ValueError(
+                "devOS credential database bootstrap variables are reserved."
+            )
+
+    def merge(self, incoming_values: dict[str, JSONValue]) -> None:
+        """Merge validated values while retaining values not mentioned by the caller."""
+        for key, value in incoming_values.items():
+            self.validate_key(key)
+            self.__values[key] = value
+
+    def remove(self, key: str) -> None:
+        """Remove one known credential value."""
+        self.validate_key(key)
+        if key not in self.__values:
+            raise KeyError(f"Credential key '{key}' was not found.")
+        del self.__values[key]
+
+    def get(self, key: str) -> JSONValue:
+        """Return one known credential value."""
+        self.validate_key(key)
+        if key not in self.__values:
+            raise KeyError(f"Credential key '{key}' was not found.")
+        return self.__values[key]
+
+    def combine(self, override_bundle: CredentialBundle) -> CredentialBundle:
+        """Return a bundle where the supplied bundle has precedence."""
+        return CredentialBundle({**self.__values, **override_bundle.__values})
+
+    def values(self) -> dict[str, JSONValue]:
+        """Return a JSON-safe copy suitable for a storage boundary."""
+        return json.loads(json.dumps(self.__values, ensure_ascii=False))
+
+    def keys(self) -> list[str]:
+        """Return sorted credential names without their values."""
+        return sorted(self.__values)
+
+    def dotenv_content(self) -> str:
+        """Render credential values as an environment file without explicit unsets."""
+        rendered_lines: list[str] = []
+        for key in self.keys():
+            value = self.__values[key]
+            if value is None:
+                continue
+            if isinstance(value, str):
+                rendered_value = json.dumps(value, ensure_ascii=False)
+            elif isinstance(value, bool):
+                rendered_value = "true" if value else "false"
+            elif isinstance(value, int | float):
+                rendered_value = str(value)
+            else:
+                # Encode non-primitive values to JSON, then quote that JSON as a
+                # dotenv string so the line stays on one line and re-parses back
+                # to the original value (not just its string form).
+                serialized_json = json.dumps(
+                    value, ensure_ascii=False, separators=(",", ":")
+                )
+                rendered_value = json.dumps(serialized_json, ensure_ascii=False)
+            rendered_lines.append(f"{key}={rendered_value}")
+        return "\n".join(rendered_lines) + ("\n" if rendered_lines else "")
+
+    def dotenv_example_content(self) -> str:
+        """Render a credential-name-only environment example."""
+        rendered_lines = [
+            f"{key}=" for key in self.keys() if self.__values[key] is not None
+        ]
+        return "\n".join(rendered_lines) + ("\n" if rendered_lines else "")
+
+
+@dataclasses.dataclass
+class CredentialProjectRegistry:
+    """Own the known credential project names."""
+
+    __project_names: set[str] # type: ignore
+
+    @classmethod
+    def empty(cls) -> CredentialProjectRegistry:
+        """Create an empty project registry."""
+        return cls(set())
+
+    @classmethod
+    def from_json_value(
+        cls, value: JSONValue, storage_key: str
+    ) -> CredentialProjectRegistry:
+        """Validate a Redis JSON document as a project-name registry."""
+        if not isinstance(value, list) or not all(
+            isinstance(project_name, str) for project_name in value
+        ):
+            raise ValueError(
+                f"The credential project registry '{storage_key}' is not a JSON string list."
+            )
+        return cls(set(typing.cast(list[str], value)))
+
+    def register(self, project_name: str) -> None:
+        """Record a project as owning a project credential bundle."""
+        self.__project_names.add(project_name)
+
+    def names(self) -> list[str]:
+        """Return project names in deterministic order."""
+        return sorted(self.__project_names)

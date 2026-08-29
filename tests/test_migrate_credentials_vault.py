@@ -3,14 +3,14 @@ from __future__ import annotations
 import json
 import pathlib
 
-import devOS.infrastructure.credential_database as credential_database
+import devOS.infrastructure.adapters as adapters
 import devOS.use_cases.manage_credentials as manage_credentials
 import scripts.migrate_credentials_vault as migrate_credentials_vault
 
 
 class FakeNoSQLDatabase:
     def __init__(self) -> None:
-        self.values: dict[str, credential_database.JSONValue] = {}
+        self.values: dict[str, adapters.JSONValue] = {}
 
     def put(self, key, value):
         self.values[key] = json.loads(json.dumps(value))
@@ -66,7 +66,7 @@ def test_legacy_migration_imports_only_managed_records_and_is_idempotent(
     assert database.values[manage_credentials.GENERAL_CREDENTIALS_KEY] == {
         "GENERAL_TOKEN": "general-secret"
     }
-    assert database.values["devos:credentials:project:sample"] == {
+    assert database.values["devos:projects:sample"] == {
         "PROJECT_TOKEN": "project-secret"
     }
     assert "private-file-value" not in json.dumps(database.values)

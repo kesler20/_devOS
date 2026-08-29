@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import json
 import pathlib
-import tempfile
+import typing
 
 import dotenv
 
-import devOS.infrastructure.credential_database as credential_database
+import devOS.infrastructure.adapters as adapters
 import devOS.use_cases.manage_credentials as manage_credentials
 
 
@@ -29,16 +28,14 @@ class LegacyCredentialsMigrationUseCase:
         for project_directory in sorted(
             path for path in dotenv_root.iterdir() if path.is_dir()
         ):
-            credential_file = (
-                project_directory / f"dotenv_{project_directory.name}.txt"
-            )
+            credential_file = project_directory / f"dotenv_{project_directory.name}.txt"
             if not credential_file.is_file():
                 continue
             parsed_values = dotenv.dotenv_values(credential_file)
             project_bundles[project_directory.name] = {
                 key: "" if value is None else value
                 for key, value in parsed_values.items()
-                if not key.startswith(manage_credentials.BOOTSTRAP_VARIABLE_PREFIX)
+                if not manage_credentials.is_bootstrap_variable(key)
             }
         return project_bundles
 
@@ -52,7 +49,11 @@ class LegacyCredentialsMigrationUseCase:
             secret_key = secret_file.stem.removeprefix("global_secret_")
             if not manage_credentials.ENVIRONMENT_KEY_PATTERN.fullmatch(secret_key):
                 raise ValueError(f"Invalid legacy credential key: {secret_key}")
-            general_bundle[secret_key] = secret_file.read_text(encoding="utf-8")
+            # Only trailing newlines go, so multi-line secrets such as private
+            # keys survive the migration intact.
+            general_bundle[secret_key] = secret_file.read_text(encoding="utf-8").rstrip(
+                "\n"
+            )
         return general_bundle
 
     def execute(self) -> None:
@@ -63,32 +64,21 @@ class LegacyCredentialsMigrationUseCase:
 
         general_bundle = self.__read_general_bundle()
         project_bundles = self.__read_project_bundles()
-        json.dumps(general_bundle)
-        json.dumps(project_bundles)
 
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            export_root = pathlib.Path(temporary_directory)
-            general_destination = export_root / "general" / "credentials.json"
-            general_destination.parent.mkdir(parents=True)
-            general_destination.write_text(
-                json.dumps(general_bundle, indent=2), encoding="utf-8"
+        self.__credentials_use_case.store_general_credentials(
+            typing.cast(dict[str, manage_credentials.JSONValue], general_bundle)
+        )
+        for project_name, project_bundle in sorted(project_bundles.items()):
+            self.__credentials_use_case.store_project_credentials(
+                project_name,
+                typing.cast(dict[str, manage_credentials.JSONValue], project_bundle),
             )
-            for project_name, project_bundle in project_bundles.items():
-                project_destination = (
-                    export_root
-                    / "projects"
-                    / project_name
-                    / "credentials.json"
-                )
-                project_destination.parent.mkdir(parents=True)
-                project_destination.write_text(
-                    json.dumps(project_bundle, indent=2), encoding="utf-8"
-                )
-            self.__credentials_use_case.import_credentials(str(export_root))
 
         print(f"General credential keys validated: {len(general_bundle)}")
         for project_name, project_bundle in sorted(project_bundles.items()):
-            print(f"Project credential keys validated: {project_name} {len(project_bundle)}")
+            print(
+                f"Project credential keys validated: {project_name} {len(project_bundle)}"
+            )
 
 
 def main() -> None:
@@ -99,19 +89,16 @@ def main() -> None:
         "legacy_vault",
         nargs="?",
         default=str(
-            pathlib.Path.home()
-            / "protocol"
-            / "00 PKM"
-            / "3 Resources"
-            / "Vault"
+            pathlib.Path.home() / "protocol" / "00 PKM" / "3 Resources" / "Vault"
         ),
     )
     arguments = parser.parse_args()
 
-    database = credential_database.RedisKeyValueAdapter.from_environment()
+    database = adapters.RedisNoSQLAdapter.from_environment()
     credentials_use_case = manage_credentials.ManageCredentialsUseCase(
         database=database,
         project_name="migration",
+        project_root=pathlib.Path.cwd(),
     )
     LegacyCredentialsMigrationUseCase(
         legacy_vault=pathlib.Path(arguments.legacy_vault).expanduser().resolve(),

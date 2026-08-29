@@ -1,33 +1,24 @@
-import os
 import typing
-from enum import Enum
-
-from dotenv import load_dotenv
-from pydantic import SecretStr
-
-try:
-    from pydantic_settings import BaseSettings
-except ImportError:
-    from pydantic import BaseSettings  # type: ignore
-
-from .credentials import runtime_loader
+import enum
+import os
+import dotenv
+import pydantic
+import pydantic_settings
+from . import credentials
 
 
-
-PROJECT_NAME = "__DEVOS_PROJECT_NAME__"
-
-load_dotenv()
-runtime_loader.LoadCredentialsUseCase.from_environment(PROJECT_NAME).execute()
+dotenv.load_dotenv()
+credentials.LoadCredentialsUseCase.from_environment().execute()
 
 
-class EnvironmentVariables(BaseSettings):
+class EnvironmentVariables(pydantic_settings.BaseSettings):
     PREFECT_API_URL: str = "https://prefect-production.up.railway.app/api"
 
     GITHUB_USERNAME: str = "kesler20"
-    PAT: SecretStr | None = None
+    PAT: pydantic.SecretStr | None = None
 
     AWS_ACCESS_KEY_ID: str | None = None
-    AWS_SECRET_ACCESS_KEY: SecretStr | None = None
+    AWS_SECRET_ACCESS_KEY: pydantic.SecretStr | None = None
     AWS_REGION: str = "eu-west-2"
 
     DATA_LAKE_NAME: str = "process-data-lake"
@@ -36,8 +27,8 @@ class EnvironmentVariables(BaseSettings):
     MLFLOW_S3_ENDPOINT_URL: str | None = None
 
     MINIO_PUBLIC_ENDPOINT: str = "https://bucket-production-d128.up.railway.app:443"
-    MINIO_ROOT_PASSWORD: SecretStr | None = None
-    MINIO_ROOT_USER: SecretStr | None = None
+    MINIO_ROOT_PASSWORD: pydantic.SecretStr | None = None
+    MINIO_ROOT_USER: pydantic.SecretStr | None = None
     MINIO_BUCKET: str | None = None
     MINIO_SECURE: bool = True
     AWS_S3_ADDRESSING_STYLE: str = "path"
@@ -46,24 +37,24 @@ class EnvironmentVariables(BaseSettings):
     MQTT_MOSQUITTO_BROKER: str | None = None
     MQTT_MOSQUITTO_PORT: int = 1883
     MQTT_MOSQUITTO_USERNAME: str | None = None
-    MQTT_MOSQUITTO_PASSWORD: SecretStr | None = None
+    MQTT_MOSQUITTO_PASSWORD: pydantic.SecretStr | None = None
 
     REDIS_HOST: str | None = None
     REDIS_PORT: int = 6379
-    REDIS_PASSWORD: SecretStr | None = None
+    REDIS_PASSWORD: pydantic.SecretStr | None = None
     REDIS_DB: int = 0
     REDIS_SSL: bool = False
 
     EMAIL_BLOCK_NAME: str = "email-alert-block"
     EMAIL_HOST_USER: str | None = None
-    EMAIL_HOST_PASSWORD: SecretStr | None = None
+    EMAIL_HOST_PASSWORD: pydantic.SecretStr | None = None
     SMTP_SERVER: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_TYPE: str = "STARTTLS"
     EMAIL_FROM: str | None = None
 
     DOCKER_HUB_USERNAME: str | None = None
-    DOCKER_HUB_PASSWORD: SecretStr | None = None
+    DOCKER_HUB_PASSWORD: pydantic.SecretStr | None = None
 
     class Config:
         env_file = ".env"
@@ -79,7 +70,7 @@ class EnvironmentVariables(BaseSettings):
 
 
 def unwrap_secret(value: typing.Any) -> typing.Any:
-    if isinstance(value, SecretStr):
+    if isinstance(value, pydantic.SecretStr):
         return value.get_secret_value()
     return value
 
@@ -87,19 +78,19 @@ def unwrap_secret(value: typing.Any) -> typing.Any:
 dotenv_var = EnvironmentVariables()
 
 
-class GithubConfigsCreds(Enum):
+class GithubConfigsCreds(enum.Enum):
     GITHUB_USERNAME = dotenv_var.GITHUB_USERNAME
     PAT = unwrap_secret(dotenv_var.PAT)
 
 
-class AwsConfigsCreds(Enum):
+class AwsConfigsCreds(enum.Enum):
     AWS_ACCESS_KEY_ID = dotenv_var.AWS_ACCESS_KEY_ID
     AWS_SECRET_ACCESS_KEY = unwrap_secret(dotenv_var.AWS_SECRET_ACCESS_KEY)
     AWS_REGION = dotenv_var.AWS_REGION
     DATA_LAKE_NAME = dotenv_var.DATA_LAKE_NAME
 
 
-class RedisConfigsCreds(Enum):
+class RedisConfigsCreds(enum.Enum):
     REDIS_HOST = dotenv_var.REDIS_HOST
     REDIS_PORT = dotenv_var.REDIS_PORT
     REDIS_PASSWORD = unwrap_secret(dotenv_var.REDIS_PASSWORD)
@@ -107,7 +98,7 @@ class RedisConfigsCreds(Enum):
     REDIS_SSL = dotenv_var.REDIS_SSL
 
 
-class MinioConfigsCreds(Enum):
+class MinioConfigsCreds(enum.Enum):
     MINIO_PUBLIC_ENDPOINT = dotenv_var.MINIO_PUBLIC_ENDPOINT
     MINIO_ROOT_USER = unwrap_secret(dotenv_var.MINIO_ROOT_USER)
     MINIO_ROOT_PASSWORD = unwrap_secret(dotenv_var.MINIO_ROOT_PASSWORD)
@@ -118,14 +109,14 @@ class MinioConfigsCreds(Enum):
     MINIO_BROWSER_REDIRECT_URL = dotenv_var.MINIO_BROWSER_REDIRECT_URL
 
 
-class MqttMosquittoConfigsCreds(Enum):
+class MqttMosquittoConfigsCreds(enum.Enum):
     MQTT_MOSQUITTO_BROKER = dotenv_var.MQTT_MOSQUITTO_BROKER
     MQTT_MOSQUITTO_PORT = dotenv_var.MQTT_MOSQUITTO_PORT
     MQTT_MOSQUITTO_USERNAME = dotenv_var.MQTT_MOSQUITTO_USERNAME
     MQTT_MOSQUITTO_PASSWORD = unwrap_secret(dotenv_var.MQTT_MOSQUITTO_PASSWORD)
 
 
-class MlflowConfigsCreds(Enum):
+class MlflowConfigsCreds(enum.Enum):
     MLFLOW_TRACKING_URI = dotenv_var.MLFLOW_TRACKING_URI
     MLFLOW_ARTIFACTS_BUCKET_NAME = dotenv_var.MLFLOW_ARTIFACTS_BUCKET_NAME
     MLFLOW_ARTIFACTS_BUCKET = dotenv_var.mlflow_artifacts_bucket()
@@ -133,7 +124,7 @@ class MlflowConfigsCreds(Enum):
     MINIO_BROWSER_REDIRECT_URL = dotenv_var.MINIO_BROWSER_REDIRECT_URL
 
 
-class EmailConfigsCreds(Enum):
+class EmailConfigsCreds(enum.Enum):
     EMAIL_BLOCK_NAME = dotenv_var.EMAIL_BLOCK_NAME
     EMAIL_HOST_USER = dotenv_var.EMAIL_HOST_USER
     EMAIL_HOST_PASSWORD = unwrap_secret(dotenv_var.EMAIL_HOST_PASSWORD)
@@ -143,10 +134,10 @@ class EmailConfigsCreds(Enum):
     EMAIL_FROM = dotenv_var.EMAIL_FROM
 
 
-class DockerConfigsCreds(Enum):
+class DockerConfigsCreds(enum.Enum):
     DOCKER_HUB_USERNAME = dotenv_var.DOCKER_HUB_USERNAME
     DOCKER_HUB_PASSWORD = unwrap_secret(dotenv_var.DOCKER_HUB_PASSWORD)
 
 
-class PrefectConfigsCreds(Enum):
+class PrefectConfigsCreds(enum.Enum):
     PREFECT_API_URL = dotenv_var.PREFECT_API_URL
