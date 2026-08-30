@@ -126,6 +126,8 @@ def test_set_list_get_and_delete_do_not_print_values(
     use_case.store_project_credentials("other-project", {"OTHER_TOKEN": "value"})
     capsys.readouterr()
 
+    use_case.list_credentials()
+    overview_output = capsys.readouterr().out
     use_case.list_credentials("other-project")
     listed_output = capsys.readouterr().out
     use_case.get_global_secret("GENERAL_TOKEN")
@@ -133,6 +135,12 @@ def test_set_list_get_and_delete_do_not_print_values(
     use_case.delete_global_secret("GENERAL_TOKEN")
 
     captured = capsys.readouterr()
+    assert "General credentials:" in overview_output
+    assert "GENERAL_TOKEN" in overview_output
+    assert "Project credentials (sample):" in overview_output
+    assert "PROJECT_TOKEN" in overview_output
+    assert "Known projects:" in overview_output
+    assert "other-project" in overview_output
     assert "PROJECT_TOKEN" not in listed_output
     assert "GENERAL_TOKEN" not in listed_output
     assert "OTHER_TOKEN" in listed_output

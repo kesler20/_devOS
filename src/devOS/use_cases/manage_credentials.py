@@ -264,15 +264,24 @@ class ManageCredentialsUseCase:
         print(f"Deleted {key} from the general credentials")
 
     def list_credentials(self, project_name: str | None = None) -> None:
-        """Print one project's stored credential names without their values."""
-        resolved_project_name = (
-            self.__project_name if project_name is None else project_name
-        )
-        project_keys = self.__load_bundle(
-            self.__project_key(resolved_project_name)
-        ).keys()
+        """Print the credential overview or one project's names without values."""
+        if project_name is None:
+            general_keys = self.__load_bundle(GENERAL_CREDENTIALS_KEY).keys()
+            current_project_keys = self.__load_bundle(self.__project_key()).keys()
 
-        print(f"Project credentials ({resolved_project_name}):")
+            print(f"Project credentials ({self.__project_name}):")
+            for key in current_project_keys:
+                print(f"  {key}")
+            print("Projects Registered:")
+            for known_project_name in self.__load_registry().names():
+                print(f"  {known_project_name}")
+            print("Global Secrets:")
+            for key in general_keys:
+                print(f"  {key}")
+            return
+
+        project_keys = self.__load_bundle(self.__project_key(project_name)).keys()
+        print(f"Project credentials ({project_name}):")
         for key in project_keys:
             print(f"  {key}")
 

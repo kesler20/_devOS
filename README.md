@@ -104,8 +104,9 @@ dev set secrets secret_key secret_value
 dev get secrets secret_key
 ```
 
-The get command copies the value to the clipboard without printing it. Listing shows
-key names only:
+The get command copies the value to the clipboard without printing it. Without a
+project name, listing shows global key names, the current project's key names, and
+the registered projects. With a project name, it shows only that project's key names:
 
 ```bash
 dev list credentials
