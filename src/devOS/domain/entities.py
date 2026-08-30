@@ -715,9 +715,9 @@ class CredentialBundle:
         """Return sorted credential names without their values."""
         return sorted(self.__values)
 
-    def dotenv_content(self) -> str:
-        """Render credential values as an environment file without explicit unsets."""
-        rendered_lines: list[str] = []
+    def dotenv_values(self) -> dict[str, str]:
+        """Render each credential as the right-hand side of an environment line."""
+        rendered_values: dict[str, str] = {}
         for key in self.keys():
             value = self.__values[key]
             if value is None:
@@ -736,7 +736,14 @@ class CredentialBundle:
                     value, ensure_ascii=False, separators=(",", ":")
                 )
                 rendered_value = json.dumps(serialized_json, ensure_ascii=False)
-            rendered_lines.append(f"{key}={rendered_value}")
+            rendered_values[key] = rendered_value
+        return rendered_values
+
+    def dotenv_content(self) -> str:
+        """Render credential values as an environment file without explicit unsets."""
+        rendered_lines = [
+            f"{key}={value}" for key, value in self.dotenv_values().items()
+        ]
         return "\n".join(rendered_lines) + ("\n" if rendered_lines else "")
 
     def dotenv_example_content(self) -> str:

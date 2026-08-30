@@ -9,13 +9,10 @@ from snippets.python.config import credentials as snippet_credentials
 def test_snippet_and_devos_agree_on_the_storage_contract() -> None:
     """The copied snippet must address the same keys devOS writes."""
     assert (
-        snippet_credentials.GENERAL_CREDENTIALS_KEY
-        == manage_credentials.GENERAL_CREDENTIALS_KEY
-    )
-    assert (
         snippet_credentials.PROJECT_CREDENTIALS_KEY_PREFIX
         == manage_credentials.PROJECT_CREDENTIALS_KEY_PREFIX
     )
+    assert not hasattr(snippet_credentials, "GENERAL_CREDENTIALS_KEY")
     assert (
         snippet_credentials.RESERVED_VARIABLE_PREFIX
         == entities.BOOTSTRAP_VARIABLE_PREFIX

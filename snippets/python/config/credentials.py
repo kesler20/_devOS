@@ -14,7 +14,6 @@ JSONValue: typing.TypeAlias = (
     None | bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"]
 )
 
-GENERAL_CREDENTIALS_KEY = "devos:general"
 PROJECT_CREDENTIALS_KEY_PREFIX = "devos:projects:"
 RESERVED_VARIABLE_PREFIX = "devos_"
 
@@ -157,7 +156,7 @@ class LoadCredentialsUseCase:
         return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
     def execute(self) -> bool:
-        """Overlay the general and project bundles onto the environment."""
+        """Overlay the current project's bundle onto the environment."""
         database = self.__database
         if database is None:
             logging.warning(
@@ -166,7 +165,6 @@ class LoadCredentialsUseCase:
             return False
 
         try:
-            general_bundle = self.__load_bundle(database, GENERAL_CREDENTIALS_KEY)
             project_bundle = self.__load_bundle(
                 database, f"{PROJECT_CREDENTIALS_KEY_PREFIX}{self.__project_name}"
             )
@@ -177,7 +175,7 @@ class LoadCredentialsUseCase:
             )
             return False
 
-        for key, value in {**general_bundle, **project_bundle}.items():
+        for key, value in project_bundle.items():
             # A null means the bundle does not specify the value, so whatever the
             # shell or .env already provided is left in place.
             if value is None or key.lower().startswith(RESERVED_VARIABLE_PREFIX):

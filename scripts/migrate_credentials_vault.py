@@ -7,6 +7,7 @@ import typing
 import dotenv
 
 import devOS.infrastructure.adapters as adapters
+import devOS.domain.entities as entities
 import devOS.use_cases.manage_credentials as manage_credentials
 
 
@@ -35,7 +36,7 @@ class LegacyCredentialsMigrationUseCase:
             project_bundles[project_directory.name] = {
                 key: "" if value is None else value
                 for key, value in parsed_values.items()
-                if not manage_credentials.is_bootstrap_variable(key)
+                if not entities.is_bootstrap_variable(key)
             }
         return project_bundles
 
@@ -47,7 +48,7 @@ class LegacyCredentialsMigrationUseCase:
 
         for secret_file in sorted(secrets_root.glob("global_secret_*.txt")):
             secret_key = secret_file.stem.removeprefix("global_secret_")
-            if not manage_credentials.ENVIRONMENT_KEY_PATTERN.fullmatch(secret_key):
+            if not entities.ENVIRONMENT_KEY_PATTERN.fullmatch(secret_key):
                 raise ValueError(f"Invalid legacy credential key: {secret_key}")
             # Only trailing newlines go, so multi-line secrets such as private
             # keys survive the migration intact.
@@ -66,12 +67,12 @@ class LegacyCredentialsMigrationUseCase:
         project_bundles = self.__read_project_bundles()
 
         self.__credentials_use_case.store_general_credentials(
-            typing.cast(dict[str, manage_credentials.JSONValue], general_bundle)
+            typing.cast(dict[str, entities.JSONValue], general_bundle)
         )
         for project_name, project_bundle in sorted(project_bundles.items()):
             self.__credentials_use_case.store_project_credentials(
                 project_name,
-                typing.cast(dict[str, manage_credentials.JSONValue], project_bundle),
+                typing.cast(dict[str, entities.JSONValue], project_bundle),
             )
 
         print(f"General credential keys validated: {len(general_bundle)}")

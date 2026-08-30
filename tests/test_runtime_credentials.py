@@ -21,16 +21,16 @@ class FakeNoSQLDatabase:
         return self.values.get(key)
 
 
-def test_runtime_loader_overlays_project_and_serializes_json(monkeypatch) -> None:
+def test_runtime_loader_reads_only_its_project_and_serializes_json(monkeypatch) -> None:
     database = FakeNoSQLDatabase(
         {
-            credentials.GENERAL_CREDENTIALS_KEY: {
-                "VALUE": "general",
-                "FLAGS": [True, False],
-                "UNSPECIFIED": "present",
+            f"{credentials.PROJECT_CREDENTIALS_KEY_PREFIX}other-project": {
+                "VALUE": "other-project",
+                "GENERAL_ONLY": "must-not-load",
             },
             f"{credentials.PROJECT_CREDENTIALS_KEY_PREFIX}sample": {
                 "VALUE": "project",
+                "FLAGS": [True, False],
                 "OBJECT": {"ratio": 1.5},
                 "UNSPECIFIED": None,
             },
@@ -44,6 +44,7 @@ def test_runtime_loader_overlays_project_and_serializes_json(monkeypatch) -> Non
     assert os.environ["VALUE"] == "project"
     assert json.loads(os.environ["FLAGS"]) == [True, False]
     assert json.loads(os.environ["OBJECT"]) == {"ratio": 1.5}
+    assert "GENERAL_ONLY" not in os.environ
     # A null means the bundle does not specify the value, so the local one stays.
     assert os.environ["UNSPECIFIED"] == "local"
 
@@ -51,7 +52,7 @@ def test_runtime_loader_overlays_project_and_serializes_json(monkeypatch) -> Non
 def test_runtime_loader_skips_reserved_bootstrap_values(monkeypatch) -> None:
     database = FakeNoSQLDatabase(
         {
-            credentials.GENERAL_CREDENTIALS_KEY: {
+            f"{credentials.PROJECT_CREDENTIALS_KEY_PREFIX}sample": {
                 "devos_redis_url": "rediss://stored",
             }
         }

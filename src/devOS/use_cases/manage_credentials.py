@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 import shutil
 import typing
 import dotenv
@@ -15,6 +16,13 @@ PROJECT_CREDENTIALS_KEY_PREFIX = "devos:projects:"
 PROJECT_REGISTRY_KEY = "devos:projects"
 
 CONFIG_SNIPPET_FILE_NAMES = ("configs.py", "credentials.py")
+
+# Matches one environment assignment. The prefix captures everything up to
+# and including the equals sign and any padding, so indentation, "export ",
+# and spacing around the sign all survive a value being swapped in.
+ASSIGNMENT_PATTERN = re.compile(
+    r"^(?P<prefix>\s*(?:export\s+)?(?P<key>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*)"
+)
 
 
 class ManageCredentialsUseCase:
@@ -89,11 +97,6 @@ class ManageCredentialsUseCase:
         ):
             raise RuntimeError("The credential project registry was not stored.")
 
-    def __effective_bundle(self) -> entities.CredentialBundle:
-        general_bundle = self.__load_bundle(GENERAL_CREDENTIALS_KEY)
-        project_bundle = self.__load_bundle(self.__project_key())
-        return general_bundle.combine(project_bundle)
-
     # ================================= #
     #                                   #
     #   MATERIALIZATION                 #
@@ -101,44 +104,67 @@ class ManageCredentialsUseCase:
     # ================================= #
 
     def get_credentials(self) -> None:
-        """Materialize the effective bundle as ``.env`` and ``.env.example``."""
+        """Update the project's ``.env`` in place from its credential bundle.
+
+        Existing assignments have only their values replaced, so comments,
+        blank lines, ordering, and any key the store does not carry all survive.
+        Credentials the file does not mention yet are appended at the end. The
+        previous file is copied to ``.devos_backup/.env`` first.
+        """
+
         environment_path = self.__project_root / ".env"
-        effective_bundle = self.__effective_bundle()
-        # Only keys the store actually supplies a value for are rewritten, so a
-        # bootstrap line, a local-only value, and a key left null in the bundle
-        # all survive materialization.
-        rewritten_keys = {
-            key
-            for key, value in effective_bundle.values().items()
-            if value is not None
-        }
+        rendered_values = self.__load_bundle(self.__project_key()).dotenv_values()
 
-        preserved_values: dict[str, str] = {}
+        original_lines: list[str] = []
         if environment_path.is_file():
-            preserved_values = {
-                key: value
-                for key, value in dotenv.dotenv_values(environment_path).items()
-                if value is not None and key not in rewritten_keys
-            }
+            backup_path = self.__project_root / ".devos_backup" / ".env"
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(environment_path, backup_path)
+            original_lines = environment_path.read_text(encoding="utf-8").splitlines()
 
-        preserved_lines = "".join(
-            f"{key}={json.dumps(value, ensure_ascii=False)}\n"
-            for key, value in preserved_values.items()
-        )
-        preserved_example_lines = "".join(
-            f"{key}=\n" for key in preserved_values if key not in rewritten_keys
-        )
+        replaced_keys: set[str] = set()
+        updated_lines: list[str] = []
+        for line in original_lines:
+            match = ASSIGNMENT_PATTERN.match(line)
+            if match is None:
+                updated_lines.append(line)
+                continue
+            key = match.group("key")
+            if key not in rendered_values:
+                updated_lines.append(line)
+                continue
+            updated_lines.append(f"{match.group('prefix')}{rendered_values[key]}")
+            replaced_keys.add(key)
+
+        appended_keys = [key for key in rendered_values if key not in replaced_keys]
+        if appended_keys:
+            # Two blank lines separate the appended block from whatever the file
+            # already ended with.
+            while updated_lines and not updated_lines[-1].strip():
+                updated_lines.pop()
+            if updated_lines:
+                updated_lines += ["", ""]
+            updated_lines += [
+                f"{key}={rendered_values[key]}" for key in appended_keys
+            ]
 
         environment_path.write_text(
-            preserved_lines + effective_bundle.dotenv_content(), encoding="utf-8"
-        )
-        (self.__project_root / ".env.example").write_text(
-            preserved_example_lines + effective_bundle.dotenv_example_content(),
+            "\n".join(updated_lines) + ("\n" if updated_lines else ""),
             encoding="utf-8",
         )
+        # The example masks whatever the resulting file holds, so a local-only
+        # key is documented too rather than silently missing.
+        example_keys = [
+            match.group("key")
+            for match in (ASSIGNMENT_PATTERN.match(line) for line in updated_lines)
+            if match is not None
+        ]
+        (self.__project_root / ".env.example").write_text(
+            "".join(f"{key}=\n" for key in example_keys), encoding="utf-8"
+        )
         print(
-            f"Materialized {len(rewritten_keys)} credentials into .env, "
-            f"keeping {len(preserved_values)} existing values"
+            f"Updated {len(replaced_keys)} credentials in .env and appended "
+            f"{len(appended_keys)}"
         )
 
     def set_credentials(self, *flags: str) -> None:
@@ -237,20 +263,18 @@ class ManageCredentialsUseCase:
         self.__delete_value(GENERAL_CREDENTIALS_KEY, key)
         print(f"Deleted {key} from the general credentials")
 
-    def list_credentials(self) -> None:
-        """Print stored credential names without their values."""
-        general_keys = self.__load_bundle(GENERAL_CREDENTIALS_KEY).keys()
-        project_keys = self.__load_bundle(self.__project_key()).keys()
+    def list_credentials(self, project_name: str | None = None) -> None:
+        """Print one project's stored credential names without their values."""
+        resolved_project_name = (
+            self.__project_name if project_name is None else project_name
+        )
+        project_keys = self.__load_bundle(
+            self.__project_key(resolved_project_name)
+        ).keys()
 
-        print("General credentials:")
-        for key in general_keys:
-            print(f"  {key}")
-        print(f"Project credentials ({self.__project_name}):")
+        print(f"Project credentials ({resolved_project_name}):")
         for key in project_keys:
             print(f"  {key}")
-        print("Known projects:")
-        for project_name in self.__load_registry().names():
-            print(f"  {project_name}")
 
     # =================== #
     #                     #

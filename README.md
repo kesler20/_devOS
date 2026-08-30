@@ -71,8 +71,8 @@ Design entities, set field types and relationships, then export directly to
 ### Managing Credentials
 
 Store credentials as JSON documents in Redis. The runtime needs only its Redis
-bootstrap credentials to load the shared `general` namespace and the namespace for
-the current Git project. Project values override general values.
+bootstrap credentials to load the namespace for the current Git project. It never
+loads credentials from the general namespace.
 
 Configure Redis with either a single URL:
 
@@ -89,7 +89,7 @@ Install a project-owned loader and configuration template:
 dev setup credentials
 ```
 
-Import the current `.env`, set one value, or materialize the effective credentials:
+Import the current `.env`, set one value, or materialize that project's credentials:
 
 ```bash
 dev set credentials
@@ -109,6 +109,7 @@ key names only:
 
 ```bash
 dev list credentials
+dev list credentials project-name
 ```
 
 Back up or restore the complete credential estate as hierarchical JSON:
@@ -354,7 +355,9 @@ focus on:
 ### The Credential Database
 
 Redis stores one JSON document for general credentials and one per Git project.
-Applications load both at import time through their copied `configs.py` bundle.
+Applications load only their own project document at import time through their copied
+`configs.py` bundle. General credentials are available only through the explicit
+secrets commands.
 Redis is authoritative when available. If it cannot be reached, values already loaded
 from a local `.env` remain in place.
 

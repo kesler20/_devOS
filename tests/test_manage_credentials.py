@@ -47,15 +47,10 @@ def build_project_config(project_name: str) -> entities.ProjectConfigSchema:
     )
 
 
-def test_project_credentials_override_general_and_materialize_without_nulls(
+def test_project_credentials_materialize_without_global_credentials_or_nulls(
     tmp_path: pathlib.Path,
 ) -> None:
     database = FakeNoSQLDatabase()
-    database.values[manage_credentials.GENERAL_CREDENTIALS_KEY] = {
-        "SHARED": "general",
-        "GENERAL_ONLY": True,
-        "MASKED": "general",
-    }
     database.values["devos:projects:sample"] = {
         "SHARED": "project",
         "OBJECT": {"enabled": True},
@@ -76,7 +71,7 @@ def test_project_credentials_override_general_and_materialize_without_nulls(
     materialized = dotenv.dotenv_values(tmp_path / ".env")
     assert materialized["devos_redis_url"] == "rediss://bootstrap"
     assert materialized["SHARED"] == "project"
-    assert materialized["GENERAL_ONLY"] == "true"
+    assert "GENERAL_ONLY" not in materialized
     assert materialized["OBJECT"] == '{"enabled":true}'
     assert "MASKED" not in materialized
     example = (tmp_path / ".env.example").read_text(encoding="utf-8")
@@ -128,16 +123,22 @@ def test_set_list_get_and_delete_do_not_print_values(
 
     use_case.set_credential("PROJECT_TOKEN", "project-secret")
     use_case.set_global_secret("GENERAL_TOKEN", "general-secret")
-    use_case.list_credentials()
+    use_case.store_project_credentials("other-project", {"OTHER_TOKEN": "value"})
+    capsys.readouterr()
+
+    use_case.list_credentials("other-project")
+    listed_output = capsys.readouterr().out
     use_case.get_global_secret("GENERAL_TOKEN")
     use_case.delete_credential("PROJECT_TOKEN")
     use_case.delete_global_secret("GENERAL_TOKEN")
 
     captured = capsys.readouterr()
+    assert "PROJECT_TOKEN" not in listed_output
+    assert "GENERAL_TOKEN" not in listed_output
+    assert "OTHER_TOKEN" in listed_output
+    assert "other-project" in listed_output
     assert "project-secret" not in captured.out
     assert "general-secret" not in captured.out
-    assert "PROJECT_TOKEN" in captured.out
-    assert "GENERAL_TOKEN" in captured.out
     assert copied_values == ["general-secret"]
 
 
@@ -234,7 +235,7 @@ def test_materialization_keeps_keys_the_store_does_not_supply(
     tmp_path: pathlib.Path,
 ) -> None:
     database = FakeNoSQLDatabase()
-    database.values[manage_credentials.GENERAL_CREDENTIALS_KEY] = {
+    database.values["devos:projects:sample"] = {
         "SHARED": "from-redis",
         "LEFT_NULL": None,
     }
