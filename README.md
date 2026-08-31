@@ -106,11 +106,13 @@ dev set secrets secret_key secret_value
 dev get secrets secret_key
 ```
 
-The get command copies the value to the clipboard without printing it. Listing shows
-key names only:
+The get command copies the value to the clipboard without printing it. Without a
+project name, listing shows global key names, the current project's key names, and
+the registered projects. With a project name, it shows only that project's key names:
 
 ```bash
 dev list credentials
+dev list credentials project-name
 ```
 
 Export the complete credential estate as one `.env` file per bundle. The destination
@@ -486,7 +488,9 @@ focus on:
 ### The Credential Database
 
 Redis stores one JSON document for general credentials and one per Git project.
-Applications load both at import time through their copied `configs.py` bundle.
+Applications load only their own project document at import time through their copied
+`configs.py` bundle. General credentials are available only through the explicit
+secrets commands.
 Redis is authoritative when available. If it cannot be reached, values already loaded
 from a local `.env` remain in place.
 
