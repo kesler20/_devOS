@@ -26,6 +26,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "types-tqdm>=4.67.0.20250809",
     "types-pyperclip>=1.9.0.20241221",
+    "colorama>=0.4.6",
 ]
 
 [project.scripts]

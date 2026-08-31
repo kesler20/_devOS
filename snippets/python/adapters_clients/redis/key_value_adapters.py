@@ -130,7 +130,7 @@ class DynamoKeyValueAdapter:
         return data
 
 
-class RedisKeyValueAdapter:
+class RedisNoSQLAdapter:
     """Store JSON values in a Redis-like client.
 
     Parameters

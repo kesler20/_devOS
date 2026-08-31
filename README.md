@@ -19,7 +19,7 @@ the gap between prototype and production code.
 
 - You are inside an active **git repository**
 - You have **Node.js** installed
-- Your Python virtual environment is **activated**
+- The `dev` command is installed with `pipx`
 
 ### Configure a Project
 
@@ -70,18 +70,19 @@ Design entities, set field types and relationships, then export directly to
 
 ### Managing Credentials
 
-Store credentials as JSON documents in Redis. The runtime needs only its Redis
-bootstrap credentials to load the shared `general` namespace and the namespace for
-the current Git project. Project values override general values.
+Store credentials as JSON documents in Redis. Project runtimes load only the
+credential bundle for the current Git project. General credentials remain available
+only through the explicit secrets commands.
 
 Configure Redis with either a single URL:
 
 ```dotenv
-DEVOS_CREDENTIALS_REDIS_URL=rediss://username:password@host:6379/0
+devos_redis_url=rediss://username:password@host:6379/0
 ```
 
-Or separate `DEVOS_CREDENTIALS_REDIS_HOST`, `PORT`, `USERNAME`, `PASSWORD`, `DB`,
-and `SSL` variables. The URL takes precedence when both forms are present.
+Or separate `devos_redis_host`, `devos_redis_port`, `devos_redis_username`,
+`devos_redis_password`, `devos_redis_db`, and `devos_redis_ssl` variables. The URL
+takes precedence when both forms are present.
 
 Install a project-owned loader and configuration template:
 
@@ -89,10 +90,11 @@ Install a project-owned loader and configuration template:
 dev setup credentials
 ```
 
-Import the current `.env`, set one value, or materialize the effective credentials:
+Push the current `.env`, set one value, or materialize the project credentials:
 
 ```bash
-dev set credentials
+dev set credentials             # refuses to overwrite existing keys
+dev set credentials true        # force an overwrite
 dev set credential API_TOKEN token-value
 dev get credentials
 ```
@@ -111,11 +113,11 @@ key names only:
 dev list credentials
 ```
 
-Back up or restore the complete credential estate as hierarchical JSON:
+Export the complete credential estate as one `.env` file per bundle. The destination
+is relative to your home directory and should remain outside OneDrive and Git:
 
 ```bash
 dev export credentials vault-export
-dev import credentials vault-export
 ```
 
 The one-time legacy migration is intentionally a script rather than a permanent
@@ -246,8 +248,9 @@ and high-quality clean code. devOS is built on these principles:
 5. **Ralph-first local workflows** — Keep prompt and instruction files synced and
    runnable locally
 
-devOS is **not distributed via PyPI**. It's meant to be **cloned** into each project
-where you can:
+devOS is **not distributed via PyPI**. It is cloned locally and installed as an
+editable `pipx` tool so the `dev` command is available across projects. The cloned
+repository lets you:
 
 - Customize default configs and settings for your team
 - Maintain your own snippets as git branches
@@ -301,20 +304,118 @@ devOS provides utilities for keeping prompt and automation assets synced locally
 ### Prerequisites
 
 - **Node.js** v18 or above
-- **Python** 3.10 or above
+- **Python** 3.12 or above
 - An active **git repository** (devOS extracts repo name, tags, etc.)
 - (Optional) Tooling required by your local `ralph.sh` workflow
 
-### Setup
+### Install globally on macOS
 
-1. **Clone devOS into your project:**
+Install devOS as an isolated command-line tool with `pipx`. The editable
+installation exposes `dev` everywhere while continuing to execute the source in
+the cloned repository. Python 3.14 can be shared with cliOS and satisfies devOS's
+Python requirement.
+
+Confirm that Homebrew and `pipx` are available.
 
 ```bash
-git clone https://github.com/kesler20/devOS.git
-cd devOS
+brew --version
+pipx --version
 ```
 
-2. **Run the setup command:**
+Install Python 3.14 through Homebrew.
+
+```bash
+brew install python@3.14
+"$(brew --prefix python@3.14)/bin/python3.14" --version
+```
+
+Clone devOS into `~/protocol` if it is not already present.
+
+```bash
+mkdir -p "$HOME/protocol"
+git clone https://github.com/kesler20/devOS.git "$HOME/protocol/devOS"
+```
+
+Install the repository with `pipx`.
+
+```bash
+pipx install \
+  --python "$(brew --prefix python@3.14)/bin/python3.14" \
+  --editable "$HOME/protocol/devOS"
+```
+
+If `pipx` reports that `devos` is already installed, replace that installation.
+
+```bash
+pipx uninstall devos
+pipx install \
+  --python "$(brew --prefix python@3.14)/bin/python3.14" \
+  --editable "$HOME/protocol/devOS"
+```
+
+Make sure the directory where `pipx` exposes commands is on `PATH`, then restart
+the login shell.
+
+```bash
+pipx ensurepath
+exec zsh -l
+```
+
+Verify that the executable is available.
+
+```bash
+command -v dev
+pipx list
+```
+
+`command -v dev` should resolve to `~/.local/bin/dev`. Run devOS commands inside
+an active Git repository because devOS uses the current repository for project
+configuration.
+
+### Install globally on Windows
+
+Install devOS as an editable global tool with `uv`. Python 3.14 can be shared with
+cliOS and satisfies devOS's Python requirement.
+
+```powershell
+uv python install 3.14
+uv python find 3.14
+```
+
+Clone devOS into the `protocol` folder if it is not already present.
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\protocol" | Out-Null
+git clone https://github.com/kesler20/devOS.git "$HOME\protocol\devOS"
+Set-Location "$HOME\protocol\devOS"
+```
+
+Install the repository. The editable installation keeps `dev` connected to the
+source checkout.
+
+```powershell
+uv tool install --python 3.14 --editable .
+uv tool update-shell
+```
+
+Open a new PowerShell window after `uv tool update-shell`, then verify the command
+from an active Git repository.
+
+```powershell
+Set-Location "$HOME\protocol\devOS"
+Get-Command dev
+dev version
+```
+
+If devOS is already installed through `uv`, replace or refresh the installation.
+
+```powershell
+uv tool install --force --python 3.14 --editable "$HOME\protocol\devOS"
+```
+
+### Configure devOS
+
+1. **Run the setup command:**
 
 ```bash
 dev setup
@@ -326,16 +427,47 @@ This will:
 - Configure environment variables
 - Set up code snippets as git branches
 
-3. **Configure credential storage:**
+2. **Configure credential storage:**
 
 Set the Redis bootstrap variables, then run `dev setup credentials`. Redis becomes
 the credential authority. A local `.env` remains an explicit materialization and
 offline fallback.
 
-4. **Verify installation:**
+3. **Verify installation:**
 
 ```bash
 dev version
+```
+
+### Update or remove devOS
+
+Because the installation is editable, source changes take effect immediately.
+Pull repository updates normally. Reinstall only when dependencies, entry points,
+or package metadata change.
+
+```bash
+git -C "$HOME/protocol/devOS" pull
+pipx reinstall devos
+```
+
+Remove the global command without deleting the repository.
+
+```bash
+pipx uninstall devos
+```
+
+On Windows, pull changes and refresh the `uv` installation with the following
+commands.
+
+```powershell
+git -C "$HOME\protocol\devOS" pull
+uv tool install --force --python 3.14 --editable "$HOME\protocol\devOS"
+```
+
+Remove the Windows installation without deleting the repository.
+
+```powershell
+uv tool uninstall devos
 ```
 
 ---

@@ -5,7 +5,7 @@ import json
 import pytest
 import redis
 
-import devOS.infrastructure.credential_database as credential_database
+import devOS.infrastructure.adapters as adapters
 
 
 class FakeRedisClient:
@@ -29,10 +29,8 @@ class FakeRedisClient:
 
 def test_redis_adapter_round_trips_arbitrary_json() -> None:
     fake_client = FakeRedisClient()
-    adapter = credential_database.RedisKeyValueAdapter(
-        credential_database.RedisCredentialClient(fake_client)
-    )
-    value: credential_database.JSONValue = {
+    adapter = adapters.RedisNoSQLAdapter(fake_client)
+    value: adapters.JSONValue = {
         "text": "secret",
         "enabled": True,
         "ratio": 1.5,
@@ -49,9 +47,7 @@ def test_redis_adapter_round_trips_arbitrary_json() -> None:
 def test_redis_adapter_propagates_corrupted_json() -> None:
     fake_client = FakeRedisClient()
     fake_client.values["bundle"] = "{invalid"
-    adapter = credential_database.RedisKeyValueAdapter(
-        credential_database.RedisCredentialClient(fake_client)
-    )
+    adapter = adapters.RedisNoSQLAdapter(fake_client)
 
     with pytest.raises(json.JSONDecodeError):
         adapter.get("bundle")
@@ -66,13 +62,13 @@ def test_redis_client_prefers_url_over_separate_variables(monkeypatch) -> None:
         return FakeRedisClient()
 
     monkeypatch.setattr(
-        credential_database.redis.Redis, "from_url", fake_from_url
+        adapters.redis.Redis, "from_url", fake_from_url
     )
 
-    client = credential_database.RedisCredentialClient.from_environment(
+    client = adapters.build_redis_client(
         {
-            "DEVOS_CREDENTIALS_REDIS_URL": "rediss://user:pass@example.test:6379/0",
-            "DEVOS_CREDENTIALS_REDIS_HOST": "ignored.test",
+            "devos_redis_url": "rediss://user:pass@example.test:6379/0",
+            "devos_redis_host": "ignored.test",
         }
     )
 
@@ -90,16 +86,16 @@ def test_redis_client_supports_separate_variables(monkeypatch) -> None:
         captured.update(kwargs)
         return FakeRedisClient()
 
-    monkeypatch.setattr(credential_database.redis, "Redis", fake_redis)
+    monkeypatch.setattr(adapters.redis, "Redis", fake_redis)
 
-    client = credential_database.RedisCredentialClient.from_environment(
+    client = adapters.build_redis_client(
         {
-            "DEVOS_CREDENTIALS_REDIS_HOST": "redis.test",
-            "DEVOS_CREDENTIALS_REDIS_PORT": "6380",
-            "DEVOS_CREDENTIALS_REDIS_USERNAME": "owner",
-            "DEVOS_CREDENTIALS_REDIS_PASSWORD": "password",
-            "DEVOS_CREDENTIALS_REDIS_DB": "4",
-            "DEVOS_CREDENTIALS_REDIS_SSL": "true",
+            "devos_redis_host": "redis.test",
+            "devos_redis_port": "6380",
+            "devos_redis_username": "owner",
+            "devos_redis_password": "password",
+            "devos_redis_db": "4",
+            "devos_redis_ssl": "true",
         }
     )
 
@@ -120,9 +116,7 @@ def test_redis_errors_are_not_converted_to_empty_values() -> None:
         def get(self, key: str) -> str | None:
             raise redis.exceptions.ConnectionError("offline")
 
-    adapter = credential_database.RedisKeyValueAdapter(
-        credential_database.RedisCredentialClient(FailingRedisClient())
-    )
+    adapter = adapters.RedisNoSQLAdapter(FailingRedisClient())
 
     with pytest.raises(redis.exceptions.ConnectionError):
         adapter.get("bundle")
