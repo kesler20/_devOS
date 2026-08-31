@@ -135,11 +135,11 @@ def test_set_list_get_and_delete_do_not_print_values(
     use_case.delete_global_secret("GENERAL_TOKEN")
 
     captured = capsys.readouterr()
-    assert "General credentials:" in overview_output
+    assert "Global Secrets:" in overview_output
     assert "GENERAL_TOKEN" in overview_output
     assert "Project credentials (sample):" in overview_output
     assert "PROJECT_TOKEN" in overview_output
-    assert "Known projects:" in overview_output
+    assert "Projects Registered:" in overview_output
     assert "other-project" in overview_output
     assert "PROJECT_TOKEN" not in listed_output
     assert "GENERAL_TOKEN" not in listed_output

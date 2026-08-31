@@ -112,8 +112,13 @@ class ManageCredentialsUseCase:
         previous file is copied to ``.devos_backup/.env`` first.
         """
 
+        self.__write_environment_file(
+            self.__load_bundle(self.__project_key()).dotenv_values()
+        )
+
+    def __write_environment_file(self, rendered_values: dict[str, str]) -> None:
+        """Apply rendered values to ``.env`` without disturbing anything else."""
         environment_path = self.__project_root / ".env"
-        rendered_values = self.__load_bundle(self.__project_key()).dotenv_values()
 
         original_lines: list[str] = []
         if environment_path.is_file():
@@ -144,9 +149,7 @@ class ManageCredentialsUseCase:
                 updated_lines.pop()
             if updated_lines:
                 updated_lines += ["", ""]
-            updated_lines += [
-                f"{key}={rendered_values[key]}" for key in appended_keys
-            ]
+            updated_lines += [f"{key}={rendered_values[key]}" for key in appended_keys]
 
         environment_path.write_text(
             "\n".join(updated_lines) + ("\n" if updated_lines else ""),
@@ -237,9 +240,14 @@ class ManageCredentialsUseCase:
         self.__store_bundle(storage_key, bundle)
 
     def set_credential(self, key: str, value: str) -> None:
-        """Store one credential in the project bundle."""
+        """Store one credential in the project bundle and in ``.env``."""
         self.__set_value(self.__project_key(), key, value)
         self.__register_project(self.__project_name)
+        # Written straight to .env too, so the value is usable in this project
+        # without a separate pull.
+        rendered = entities.CredentialBundle.empty()
+        rendered.merge({key: value})
+        self.__write_environment_file(rendered.dotenv_values())
         print(f"Stored {key} for project '{self.__project_name}'")
 
     def delete_credential(self, key: str) -> None:

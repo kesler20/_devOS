@@ -112,3 +112,26 @@ def test_materialization_writes_a_fresh_file_without_a_leading_gap(
 
     assert (tmp_path / ".env").read_text(encoding="utf-8") == 'TOKEN="new-token"\n'
     assert not (tmp_path / ".devos_backup").exists()
+
+
+def test_set_credential_writes_the_store_and_the_env_file(
+    tmp_path: pathlib.Path,
+) -> None:
+    use_case, database = build_use_case(tmp_path)
+    (tmp_path / ".env").write_text(
+        "# Service Configs\nTOKEN=old-token\n", encoding="utf-8"
+    )
+
+    use_case.set_credential("TOKEN", "new-token")
+    use_case.set_credential("BRAND_NEW", "fresh")
+
+    assert database.values["devos:projects:sample"] == {
+        "TOKEN": "new-token",
+        "BRAND_NEW": "fresh",
+    }
+    updated = (tmp_path / ".env").read_text(encoding="utf-8")
+    assert "# Service Configs" in updated
+    values = dotenv.dotenv_values(tmp_path / ".env")
+    assert values["TOKEN"] == "new-token"
+    assert values["BRAND_NEW"] == "fresh"
+    assert (tmp_path / ".devos_backup" / ".env").is_file()
