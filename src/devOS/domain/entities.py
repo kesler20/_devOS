@@ -785,3 +785,102 @@ class CredentialProjectRegistry:
     def names(self) -> list[str]:
         """Return project names in deterministic order."""
         return sorted(self.__project_names)
+
+
+WHOLE_DOCUMENT_NAME = "(whole document)"
+
+
+@dataclasses.dataclass
+class DocumentMerge:
+    """Own the outcome of merging one stored document into another."""
+
+    written: list[str]
+    skipped: list[str]
+
+    def changed(self) -> bool:
+        """Report whether the destination document gained anything."""
+        return bool(self.written)
+
+
+@dataclasses.dataclass
+class CredentialDocument:
+    """Own one document held under a single credential database key.
+
+    The document is kept as the raw JSON value the store returned, so a
+    transfer preserves values the dotenv rendering would flatten.
+    """
+
+    __value: JSONValue  # type: ignore
+
+    @classmethod
+    def from_json_value(cls, value: JSONValue) -> CredentialDocument:
+        """Wrap a value read from the credential database."""
+        return cls(value)
+
+    def value(self) -> JSONValue:
+        """Return a JSON-safe copy suitable for a storage boundary."""
+        return json.loads(json.dumps(self.__value, ensure_ascii=False))
+
+    def merge_without_overwriting(self, incoming: CredentialDocument) -> DocumentMerge:
+        """Take everything from another document that this one does not hold.
+
+        An object gains the fields it is missing and keeps every value it
+        already has. A list gains the members it is missing. Any other pair of
+        present documents is left alone, since there is no field to merge and
+        replacing one would overwrite a stored value.
+
+        Parameters
+        ----------
+        incoming
+            Document supplied by the caller.
+
+        Returns
+        -------
+        DocumentMerge
+            Names written and names skipped, both in sorted order.
+        """
+
+        incoming_value = incoming.value()
+        if self.__value is None:
+            self.__value = incoming_value
+            # An adopted key is always a change, even when the document it
+            # carries is empty and so names nothing.
+            adopted_names = self.__written_names(incoming_value)
+            return DocumentMerge(adopted_names or [WHOLE_DOCUMENT_NAME], [])
+
+        if isinstance(self.__value, dict) and isinstance(incoming_value, dict):
+            written: list[str] = []
+            skipped: list[str] = []
+            for key, value in incoming_value.items():
+                if key in self.__value:
+                    skipped.append(key)
+                    continue
+                self.__value[key] = value
+                written.append(key)
+            return DocumentMerge(sorted(written), sorted(skipped))
+
+        if isinstance(self.__value, list) and isinstance(incoming_value, list):
+            missing_members = [
+                member for member in incoming_value if member not in self.__value
+            ]
+            self.__value = sorted(
+                self.__value + missing_members,
+                key=lambda member: json.dumps(member, sort_keys=True),
+            )
+            return DocumentMerge(self.__written_names(missing_members), [])
+
+        return DocumentMerge([], [WHOLE_DOCUMENT_NAME])
+
+    @staticmethod
+    def __written_names(value: JSONValue) -> list[str]:
+        """Name what a freshly adopted value contributed."""
+        if isinstance(value, dict):
+            return sorted(value)
+        if isinstance(value, list):
+            return sorted(
+                json.dumps(member, sort_keys=True)
+                if not isinstance(member, str)
+                else member
+                for member in value
+            )
+        return [WHOLE_DOCUMENT_NAME]

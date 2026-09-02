@@ -87,6 +87,10 @@ mapper = {
     },
     "export": {
         "credentials": {"leaf node": credentials_manager.export_credentials},
+        "store": {"leaf node": credentials_manager.export_store},
+    },
+    "import": {
+        "store": {"leaf node": credentials_manager.import_store},
     },
     "ui": {
         "leaf node": run_server.main,

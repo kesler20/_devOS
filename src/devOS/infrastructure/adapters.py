@@ -92,6 +92,27 @@ class RedisNoSQLAdapter:
         logging.info("Writing credential document to Redis for key %s.", key)
         return bool(self.__redis_client.set(key, json.dumps(value)))
 
+    def keys(self, pattern: str) -> list[str]:
+        """List the storage keys matching a glob pattern.
+
+        Parameters
+        ----------
+        pattern
+            Redis glob pattern, such as ``devos:*``.
+
+        Returns
+        -------
+        list[str]
+            Matching keys in deterministic order.
+        """
+
+        logging.info("Listing credential documents in Redis matching %s.", pattern)
+        matched_keys = [
+            key.decode("utf-8") if isinstance(key, bytes) else key
+            for key in self.__redis_client.scan_iter(match=pattern)
+        ]
+        return sorted(matched_keys)
+
     def get(self, key: str) -> entities.JSONValue:
         """Read and JSON-decode a value.
 

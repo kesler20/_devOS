@@ -15,6 +15,11 @@ GENERAL_CREDENTIALS_KEY = "devos:general"
 PROJECT_CREDENTIALS_KEY_PREFIX = "devos:projects:"
 PROJECT_REGISTRY_KEY = "devos:projects"
 
+STORE_KEY_PREFIX = "devos:"
+STORE_KEY_PATTERN = "devos:*"
+DOCUMENT_FILE_SUFFIX = ".json"
+INVALID_PATH_CHARACTERS = frozenset('<>:"/\\|?*')
+
 CONFIG_SNIPPET_FILE_NAMES = ("configs.py", "credentials.py")
 
 # Matches one environment assignment. The prefix captures everything up to
@@ -23,6 +28,42 @@ CONFIG_SNIPPET_FILE_NAMES = ("configs.py", "credentials.py")
 ASSIGNMENT_PATTERN = re.compile(
     r"^(?P<prefix>\s*(?:export\s+)?(?P<key>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*)"
 )
+
+
+def document_relative_path(storage_key: str) -> pathlib.Path:
+    """Translate a storage key into its path inside an exported store.
+
+    The ``devos:`` prefix is dropped and every remaining segment becomes a
+    directory, so ``devos:projects:devOS`` is written as ``projects/devOS.json``.
+    A segment that would escape the export root or that no filesystem accepts
+    stops the export instead of being rewritten into something else.
+    """
+
+    if not storage_key.startswith(STORE_KEY_PREFIX):
+        raise ValueError(f"Storage key '{storage_key}' is outside the devOS store.")
+
+    segments = storage_key[len(STORE_KEY_PREFIX) :].split(":")
+    for segment in segments:
+        if not segment or segment in {".", ".."}:
+            raise ValueError(
+                f"Storage key '{storage_key}' has an empty or relative segment."
+            )
+        if any(
+            character in INVALID_PATH_CHARACTERS or ord(character) < 32
+            for character in segment
+        ):
+            raise ValueError(f"Storage key '{storage_key}' cannot be written as a path.")
+
+    # The last segment is joined by hand rather than through with_suffix, which
+    # would treat a dot inside a key name as an extension and truncate it.
+    return pathlib.Path(*segments[:-1]) / f"{segments[-1]}{DOCUMENT_FILE_SUFFIX}"
+
+
+def storage_key_from_document_path(relative_path: pathlib.Path) -> str:
+    """Translate a path inside an exported store back into its storage key."""
+    segments = list(relative_path.parts)
+    segments[-1] = segments[-1][: -len(DOCUMENT_FILE_SUFFIX)]
+    return STORE_KEY_PREFIX + ":".join(segments)
 
 
 class ManageCredentialsUseCase:
@@ -331,6 +372,98 @@ class ManageCredentialsUseCase:
             f"Exported {exported_keys} credentials across "
             f"{len(exported_projects) + 1} files to {export_root}"
         )
+
+    def export_store(self, home_relative_directory: str) -> None:
+        """Mirror every stored document as a JSON file tree.
+
+        The tree is a faithful copy of the store rather than a rendering of it,
+        so values the environment format would flatten survive a round trip
+        through ``import_store``.
+
+        Parameters
+        ----------
+        home_relative_directory
+            Destination directory, given relative to the home directory.
+        """
+
+        export_root = pathlib.Path.home() / home_relative_directory
+        export_root.mkdir(parents=True, exist_ok=True)
+
+        # Every key is translated before anything is written, so a key that
+        # cannot become a path leaves no half-exported tree behind.
+        storage_keys = self.__credential_database.keys(STORE_KEY_PATTERN)
+        document_paths = {
+            storage_key: export_root / document_relative_path(storage_key)
+            for storage_key in storage_keys
+        }
+
+        for storage_key, document_path in document_paths.items():
+            document_path.parent.mkdir(parents=True, exist_ok=True)
+            document_path.write_text(
+                json.dumps(
+                    self.__credential_database.get(storage_key),
+                    indent=2,
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+        print(f"Exported {len(document_paths)} documents to {export_root}")
+        print(
+            "These documents hold credentials in plaintext. Delete them once "
+            "they have been imported."
+        )
+
+    def import_store(self, home_relative_directory: str) -> None:
+        """Merge an exported JSON file tree into the current store.
+
+        Only the credential database is written. Nothing already stored is
+        replaced: an existing value is kept and reported as skipped, so the
+        destination store is selected purely by the ``devos_redis_*`` connection
+        the current ``.env`` describes.
+
+        Parameters
+        ----------
+        home_relative_directory
+            Directory holding an exported store, relative to the home directory.
+        """
+
+        import_root = pathlib.Path.home() / home_relative_directory
+        if not import_root.is_dir():
+            raise FileNotFoundError(
+                f"No exported credential store was found at {import_root}."
+            )
+
+        written_documents = 0
+        written_values = 0
+        skipped_names_by_key: dict[str, list[str]] = {}
+        for document_path in sorted(import_root.rglob(f"*{DOCUMENT_FILE_SUFFIX}")):
+            storage_key = storage_key_from_document_path(
+                document_path.relative_to(import_root)
+            )
+            incoming_document = entities.CredentialDocument.from_json_value(
+                json.loads(document_path.read_text(encoding="utf-8"))
+            )
+            stored_document = entities.CredentialDocument.from_json_value(
+                self.__credential_database.get(storage_key)
+            )
+            merge = stored_document.merge_without_overwriting(incoming_document)
+            if merge.skipped:
+                skipped_names_by_key[storage_key] = merge.skipped
+            if not merge.changed():
+                continue
+            if not self.__credential_database.put(storage_key, stored_document.value()):
+                raise RuntimeError(f"Credential document '{storage_key}' was not stored.")
+            written_documents += 1
+            written_values += len(merge.written)
+
+        print(
+            f"Imported {written_values} values across {written_documents} documents "
+            f"from {import_root}"
+        )
+        for storage_key, skipped_names in skipped_names_by_key.items():
+            print(f"  kept in {storage_key}: {', '.join(skipped_names)}")
 
     # ================================= #
     #                                   #

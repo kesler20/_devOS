@@ -122,6 +122,28 @@ is relative to your home directory and should remain outside OneDrive and Git:
 dev export credentials vault-export
 ```
 
+Copy the whole store into a second Redis database with a lossless JSON mirror.
+Export writes one file per stored key, dropping the `devos:` prefix and turning
+the remaining colons into folders, so `devos:projects:devOS` becomes
+`projects/devOS.json`:
+
+```bash
+dev export store "Protocol/00 PKM/3 Resources/vault"
+```
+
+Both commands talk to whichever database the current `.env` describes, so the
+`devos_redis_*` variables are what select the destination. Point them at the
+second database, then import. Import writes only to Redis, never to `.env`, and
+never replaces a value that is already there: an existing credential is kept and
+reported, everything else lands, and the project registry is unioned.
+
+```bash
+dev import store "Protocol/00 PKM/3 Resources/vault"
+```
+
+The exported tree holds every credential in plaintext, so delete it once the
+import is done.
+
 The one-time legacy migration is intentionally a script rather than a permanent
 command:
 
