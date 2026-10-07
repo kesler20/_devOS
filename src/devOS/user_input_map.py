@@ -1,7 +1,6 @@
 from devOS import run_server
 from devOS.use_cases.manage_credentials import ManageCredentialsUseCase
 from devOS.use_cases.manage_git_repo import ManageGitRepositoryUseCase
-from devOS.use_cases.manage_snippets import ManageSnippetsUseCase
 from devOS.use_cases.generate_code import GenerateCodeUseCase
 import os
 import pathlib
@@ -28,7 +27,6 @@ config_project = ConfigProjectUseCase()
 project_structure = config_project.execute()
 git = ManageGitRepositoryUseCase()
 code_generator = GenerateCodeUseCase(project_structure=project_structure)
-snippet_manager = ManageSnippetsUseCase(*project_structure.home_root.snippets)
 credentials_manager = ManageCredentialsUseCase(
     database=adapters.RedisNoSQLAdapter.from_environment(),
     project_name=project_structure.project_name,
@@ -60,20 +58,11 @@ mapper = {
         "context": {"leaf node": context_builder.execute},
     },
     "set": {
-        "snippet": {
-            "leaf node": snippet_manager.set,
-            "folder": {"leaf node": snippet_manager.set_folder},
-        },
         "credential": {"leaf node": credentials_manager.set_credential},
         "credentials": {"leaf node": credentials_manager.set_credentials},
         "secrets": {"leaf node": credentials_manager.set_global_secret},
     },
     "get": {
-        "snippet": {
-            "leaf node": snippet_manager.get,
-            "all": {"leaf node": snippet_manager.get_all},
-            "folder": {"leaf node": snippet_manager.get_folder},
-        },
         "credentials": {"leaf node": credentials_manager.get_credentials},
         "secrets": {"leaf node": credentials_manager.get_global_secret},
     },
@@ -81,7 +70,6 @@ mapper = {
         "credentials": {"leaf node": credentials_manager.list_credentials},
     },
     "delete": {
-        "snippet": {"leaf node": snippet_manager.delete},
         "credential": {"leaf node": credentials_manager.delete_credential},
         "secrets": {"leaf node": credentials_manager.delete_global_secret},
     },

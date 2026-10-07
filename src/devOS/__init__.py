@@ -121,8 +121,10 @@ def explain_function(
 
 def traverse_command_mapper(
     user_command: typing.List[str],
-    command_mapper: typing.Dict[str, typing.Any] = load_command_mapper(),
+    command_mapper: typing.Dict[str, typing.Any] | None = None,
 ):
+    if command_mapper is None:
+        command_mapper = load_command_mapper()
     if not user_command:
         print_error("No command provided.")
         print_error("try one of the following:")
@@ -137,11 +139,7 @@ def traverse_command_mapper(
         traversed_path = record_traversed_path(traversed_path, path)
 
         # Traverse the command mapper dictionary with the user command.
-        current_node: typing.Union[
-            str,
-            typing.Dict[str, typing.Any],
-            typing.Dict[str, typing.Callable[..., typing.Any]],
-        ] = command_mapper.get(path, "No such path found")
+        current_node: typing.Any = command_mapper.get(path, "No such path found")
 
         # If the command is a string, it means that the path is not found.
         if isinstance(current_node, str):
@@ -193,7 +191,13 @@ def main():
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-    # Run the CLI.
+    # Scaffold works before a Git repository or project configuration exists.
+    if sys.argv[1:2] == ["scaffold"]:
+        from devOS.scaffold_cli import main as scaffold_main
+
+        raise SystemExit(scaffold_main(sys.argv[2:]))
+
+    # Existing commands retain their mapper and project setup.
     traverse_command_mapper(sys.argv[1:])
 
 

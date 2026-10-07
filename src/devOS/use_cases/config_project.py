@@ -165,7 +165,7 @@ class ConfigProjectUseCase(use_cases.OSInterface):
         self.log_message("The following information locates reusable snippets\n")
         snippets = self.__prompt(
             "Enter the snippets directory (relative to home, comma-separated)",
-            default=get_default(["home_root", "snippets"], "protocol,devOS,snippets"),
+            default=get_default(["home_root", "snippets"], "protocol,automation_engine,wiki,Snippets"),
         ).split(",")
 
         # Prompt for project_root directories
@@ -459,7 +459,7 @@ class ConfigProjectUseCase(use_cases.OSInterface):
         return entities.ProjectConfigSchema(
             project_name=project_name,
             home_root=entities.HomeRootConfig(
-                snippets=["protocol", "devOS", "snippets"],
+                snippets=["protocol", "automation_engine", "wiki", "Snippets"],
             ),
             project_root=entities.ProjectSpecificConfig(
                 dao_output_config=[

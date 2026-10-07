@@ -1,1 +1,0 @@
-"""Reusable Python configuration snippets."""

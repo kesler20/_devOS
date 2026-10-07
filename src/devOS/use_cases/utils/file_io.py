@@ -81,12 +81,17 @@ File(
         """
         Read the contents of the file with UTF-8 encoding.
 
+        Uses ``newline=""`` so the original line endings (LF or CRLF) are
+        preserved verbatim rather than universally translated to ``\\n`` -
+        callers that round-trip content through ``write_as_utf8`` must not
+        silently rewrite a CRLF file to LF.
+
         Returns
         -------
         str
             The contents of the file as a string.
         """
-        with open(self.filename, "r", encoding="utf-8") as file:
+        with open(self.filename, "r", encoding="utf-8", newline="") as file:
             content = file.read()
         return content
 
@@ -180,13 +185,19 @@ File(
         """
         Write content to the file with UTF-8 encoding, overwriting the existing content.
 
+        Uses ``newline=""`` to write ``content`` byte-for-byte on the line
+        endings it already carries, matching ``read_as_utf8``'s pass-through
+        behavior - otherwise a Windows-default write would translate any
+        bare ``\\n`` to ``\\r\\n``, corrupting content read with ``newline=""``
+        that already contains a literal ``\\r\\n``.
+
         Parameters
         ----------
         content : str
             The content to be written to the file.
         """
         self._ensure_parent_dirs()
-        with open(self.filename, "w", encoding="utf-8") as file:
+        with open(self.filename, "w", encoding="utf-8", newline="") as file:
             file.write(content)
 
     def write(self, content: str) -> None:
@@ -277,7 +288,7 @@ File(
         dict
             The contents of the JSON file as a dictionary.
         """
-        with open(self.filename, "r") as json_file:
+        with open(self.filename, "r", encoding="utf-8") as json_file:
             content: types.Dict[types.Any, types.Any] = json.loads(json_file.read())
         return content
 
@@ -293,7 +304,7 @@ File(
             The content to be written to the JSON file.
         """
         self._ensure_parent_dirs()
-        with open(self.filename, "w") as json_file:
+        with open(self.filename, "w", encoding="utf-8") as json_file:
             json_file.write(json.dumps(content, indent=2))
 
     def writeline(self, content: str) -> None:

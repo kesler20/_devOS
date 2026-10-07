@@ -6,10 +6,32 @@
 </div>
 
 **devOS** is a development acceleration toolkit that combines visual design tools,
-code generation, Ralph-first automation, and version-controlled snippets to eliminate
+code generation, local automation and credential setup to eliminate
 the gap between prototype and production code.
 
 ![drawUML](assets/drawUML.png)
+
+## Scaffold Protocol projects
+
+Use `my-scaffold-project` to research and agree product documentation and technical
+setup, then apply the approved specification with devOS.
+
+```text
+dev scaffold inspect <project-path>
+dev scaffold apply <spec-path>
+dev scaffold credentials apply <spec-path>
+dev scaffold secrets apply <spec-path>
+```
+
+These commands work without the legacy project wizard or an existing Git repository.
+They support Python, data projects and React setup. Complete apply imports and
+verifies credentials, configures repository metadata and Actions secrets, validates
+local setup and stages only affected files. New repositories are private with no
+initial commit. Existing visibility is preserved. No command commits or pushes.
+
+Read [the specification and recovery contract](docs/scaffolding.md) before applying.
+Install the local CLI with `uv sync --locked`, then run it through `uv run dev` or
+the environment's `dev` executable. Live Actions verification follows a user push.
 
 ---
 
@@ -24,7 +46,7 @@ the gap between prototype and production code.
 ### Configure a Project
 
 Point devOS at your project's directories and language once, then everything else
-(code gen, snippets, and automation utilities) reads from that config.
+(code gen, credential setup and automation utilities) reads from that config.
 
 ```bash
 dev config
@@ -153,27 +175,14 @@ python scripts/migrate_credentials_vault.py
 
 ---
 
-### Managing Snippets
+### Reusable bundles
 
-Snippets are reusable code stored in a **git-backed snippets repository**. Pull/push
-snippets with explicit `from`/`to` paths:
-
-```bash
-dev get snippet from python
-dev get snippet from python,sqlalchemy_adapter.py
-dev get snippet from python,sqlalchemy_adapter.py to path,to,local,sqlalchemy_adapter.py
-dev set snippet from path,to,local,adapters.py to python,database-adapters,adapters.py
-```
-
-Categories include Python adapters, TypeScript components, GitHub Actions workflows,
-Dockerfiles, prompts, and Copilot instruction files.
-
----
-
-### Ralph-First Workflow
-
-devOS now prioritizes a **Ralph-first** local workflow. Keep your `AGENTS.md` and
-`ralph.sh` files synchronized with prompt snippets using `dev-sync`.
+Agents use automation_engine's `wiki/Snippets/` and `wiki/SOPs/Snippets.md` to
+maintain and install complete bundles with implementation, offline tests,
+dependencies and scoped credential setup. devOS retains credential storage.
+Python scaffolding consumes the selected automation_engine checkout's config
+bundle and installs its adapted tests and setup files. Generated project guides
+come from wiki engineering SOPs through `scripts/sync_project_agents.py`.
 
 ### Keeping devOS Up to Date
 
@@ -191,56 +200,6 @@ dev-update -DevOSPath "C:/path/to/devOS" -TargetDir "my-project"
 
 > **Activate your environment before running `dev-update`** — the script installs
 > directly into whatever `pip` is on your `PATH`.
-
-### Fast Local Sync for `AGENTS.md` and `ralph.sh`
-
-To keep local instruction files aligned with snippets in `prompts/`, add this
-function to your PowerShell profile (or to [devOS_profile.ps1](devOS_profile.ps1)):
-
-```powershell
-# A function that will run devOS to update specific files locally.
-function Sync-devOS {
-  param(
-    [string]$Target = ""
-  )
-
-  switch ($Target.ToLower()) {
-    "read_agents" {
-      dev get snippet from prompts,AGENTS.md to AGENTS.md
-    }
-    "read_ralph" {
-      dev get snippet from prompts,ralph.sh to ralph.sh
-    }
-    "write_agents" {
-      dev set snippet from AGENTS.md to prompts,AGENTS.md
-    }
-    "write_ralph" {
-      dev set snippet from ralph.sh to prompts,ralph.sh
-    }
-    default {
-      Write-Host "Unknown target: $Target. Supported targets: read_agents, read_ralph, write_agents, write_ralph."
-    }
-  }
-}
-Set-Alias dev-sync Sync-devOS
-```
-
-Example usage:
-
-```powershell
-# Pull down snippet updates
-dev-sync read_agents
-dev-sync read_ralph
-
-# Push local edits back into snippets
-dev-sync write_agents
-dev-sync write_ralph
-```
-
-This gives you a quick read/write partition so you can edit locally, then sync back
-to devOS snippet storage immediately.
-
----
 
 ## Table of Contents
 
@@ -267,17 +226,17 @@ and high-quality clean code. devOS is built on these principles:
    not production artifacts
 3. **Specifications over implementations** — JSON specifications export to any
    language and avoid AST parsing errors
-4. **Version-controlled development assets** — Snippets, prompts, and configs live in
-   git branches, not scattered files
-5. **Ralph-first local workflows** — Keep prompt and instruction files synced and
-   runnable locally
+4. **Version-controlled development assets** use the canonical wiki library for
+   complete reusable code bundles
+5. **Local agent workflows** use registered engineering guides and complete
+   reusable bundles
 
 devOS is **not distributed via PyPI**. It is cloned locally and installed as an
 editable `pipx` tool so the `dev` command is available across projects. The cloned
 repository lets you:
 
 - Customize default configs and settings for your team
-- Maintain your own snippets as git branches
+- Install reusable wiki bundles through the agent workflow
 - Use it as a Redis-backed credential database client
 - Run local Ralph workflows without cloud dependencies
 
@@ -313,13 +272,12 @@ A domain-specific visual language on top of JSON for defining:
 - Machine-readable for LLM code generation
 - Type-safe and version-controllable
 
-### Ralph Workflow Utilities
+### Agent workflow
 
-devOS provides utilities for keeping prompt and automation assets synced locally:
-
-- Sync `AGENTS.md` and `ralph.sh` with snippet storage
-- Reuse version-controlled prompts across projects
-- Keep workflows local-first for proprietary codebases
+Agents use the canonical wiki Snippets SOP for reusable code bundles. Refresh
+registered project instructions through automation_engine's
+`scripts/sync_project_agents.py`. devOS supplies scaffolding, code generation and
+scoped credential setup for those workflows.
 
 ---
 
@@ -449,7 +407,7 @@ This will:
 
 - Install the ORM builder UI (React frontend)
 - Configure environment variables
-- Set up code snippets as git branches
+- Locate the canonical wiki library for credential setup
 
 2. **Configure credential storage:**
 
@@ -524,19 +482,11 @@ vault-export/
   projects/<project-name>/credentials.json
 ```
 
-### Snippets as Version-Controlled Assets
+### Reusable bundles
 
-**Snippets** are reusable code stored as **git branches** that can be pulled into any
-project:
-
-- Adapters, utils, and helpers
-- Prompts and AGENTS.md files
-- GitHub Actions workflows
-- Copilot instruction files
-- Dockerfiles and mocks
-
-**Philosophy:** Clone devOS, update snippets in your own repo, and use it to speed up
-development across all your projects.
+The canonical library is automation_engine's `wiki/Snippets/`, governed by its
+Snippets SOP. Agents adapt complete bundles and run their offline tests in the
+target. Provider configuration and credential assignment remain explicit.
 
 ### Configuration Paths
 
@@ -586,12 +536,12 @@ graph TB
 
     subgraph "Local Workflow"
       J[Ralph Scripts]
-      K[Prompt Snippets]
+      K[Project Instructions]
       L[Local Task Execution]
     end
 
     subgraph "Developer Assets"
-        M[Snippets<br/>Git Branches]
+        M[Wiki Snippet Bundles]
         N[Redis Credential Database]
         O[Templates]
     end
@@ -874,66 +824,6 @@ DAOs.
 pytest tests/
 ```
 
-### Working with Ralph Locally
-
-1. **Pull prompt and instruction updates:**
-
-```powershell
-dev-sync read_agents
-dev-sync read_ralph
-```
-
-2. **Run your local Ralph workflow:**
-
-- Execute `ralph.sh` with your preferred local runtime setup
-- Keep generated or updated instructions aligned with project conventions
-
-3. **Push local prompt edits back to snippets:**
-
-```powershell
-dev-sync write_agents
-dev-sync write_ralph
-```
-
-### Managing Snippets
-
-1. **List available snippets:**
-
-```bash
-dev get snippet from python
-```
-
-2. **Pull snippet into project:**
-
-```bash
-dev get snippet from python,sqlalchemy_adapter.py to path,to,local,sqlalchemy_adapter.py
-```
-
-To preview a snippet in the terminal instead of copying it:
-
-```bash
-dev get snippet from python,sqlalchemy_adapter.py
-```
-
-3. **Update snippet from project:**
-
-```bash
-dev set snippet from path,to,local,adapters.py to python,database-adapters,adapters.py
-```
-
-4. **Create custom snippet:**
-
-```bash
-dev delete snippet python,database-adapters,adapters.py
-```
-
-5. **Use the local sync alias for prompts docs/scripts:**
-
-```powershell
-dev-sync read_agents
-dev-sync write_agents
-```
-
 ### Configuration
 
 Edit `specs/project_config.json` to customize:
@@ -942,7 +832,7 @@ Edit `specs/project_config.json` to customize:
 {
   "project_name": "my-project",
   "home_root": {
-    "snippets": ["protocol", "devOS", "snippets"]
+    "snippets": ["protocol", "automation_engine", "wiki", "Snippets"]
   },
   "project_root": {
     "dao_output_config": [
@@ -999,7 +889,7 @@ devOS bridges the gap between **prototype** and **production**:
 1. **Visual design tools** eliminate manual boilerplate
 2. **JSON specifications** ensure portability and type safety
 3. **Ralph-first local workflows** keep automation under your control
-4. **Version-controlled snippets** standardize patterns across projects
+4. **Complete wiki bundles** carry tested patterns and setup into projects
 5. **LLM integration** handles unsupported languages and edge cases
 
 ### When to Use devOS
@@ -1025,7 +915,7 @@ devOS bridges the gap between **prototype** and **production**:
 devOS is designed to be **forked and customized**. To contribute:
 
 1. Fork the repository
-2. Update snippets, templates, or generators
+2. Update templates or generators and follow the wiki SOP for reusable bundles
 3. Submit a PR with your improvements
 4. Or keep your fork private and sync upstream changes periodically
 

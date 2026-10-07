@@ -205,7 +205,8 @@ def test_set_credentials_refuses_to_overwrite_without_force(
 def test_setup_credentials_copies_project_owned_bundle_and_refuses_overwrite(
     tmp_path: pathlib.Path,
 ) -> None:
-    snippets_root = pathlib.Path(__file__).parents[1] / "snippets"
+    import config
+    snippets_root = pathlib.Path(config.__file__).parents[2]
     setup = manage_credentials.ManageCredentialsUseCase(
         database=None,
         project_name="sample",
@@ -219,6 +220,20 @@ def test_setup_credentials_copies_project_owned_bundle_and_refuses_overwrite(
     # The project name is resolved at runtime, so nothing is stamped into the copy.
     assert "PROJECT_NAME" not in config_content
     assert (infrastructure / "credentials.py").is_file()
+    assert (infrastructure / "credentials.py").read_bytes() == (
+        snippets_root / "python/config/credentials.py"
+    ).read_bytes()
+    copied_test = tmp_path / "tests/snippets/config/test_runtime_credentials.py"
+    assert "from sample.infrastructure import credentials" in copied_test.read_text()
+    assert (tmp_path / "docs/snippets/config/requirements.txt").is_file()
+    import os
+    import subprocess
+    import sys
+    environment = {key: value for key, value in os.environ.items() if not key.lower().startswith("devos_")}
+    environment["PYTHONPATH"] = str(tmp_path / "src")
+    result = subprocess.run([sys.executable, "-m", "pytest", "-q", "tests/snippets/config"],
+                            cwd=tmp_path, env=environment, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
 
     with pytest.raises(FileExistsError):
         setup.setup_credentials(snippets_root, build_project_config("sample"))

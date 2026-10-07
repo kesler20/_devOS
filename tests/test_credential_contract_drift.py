@@ -3,7 +3,7 @@ from __future__ import annotations
 import devOS.domain.entities as entities
 import devOS.use_cases.manage_credentials as manage_credentials
 
-from snippets.python.config import credentials as snippet_credentials
+from config import credentials as snippet_credentials
 
 
 def test_snippet_and_devos_agree_on_the_storage_contract() -> None:

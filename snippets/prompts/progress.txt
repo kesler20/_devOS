@@ -1,3 +1,0 @@
-Progress log
-
-- Initial state: PRD created, no work completed yet.

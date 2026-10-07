@@ -1,6 +1,6 @@
 import pytest
-from devOS.use_cases.manage_snippets import ManageGitRepositoryUseCase
-from devOS.use_cases.manage_snippets import OSInterface, ManageSnippetsUseCase
+from devOS.use_cases.manage_git_repo import ManageGitRepositoryUseCase
+from devOS.use_cases.use_cases import OSInterface
 
 
 class TestManageGitRepositoryUseCase:
@@ -67,40 +67,4 @@ class TestOSInterface:
     @pytest.mark.skip(reason="Test case not implemented yet")
     def test_join(self):
         """Test join method"""
-        pass
-
-
-class TestManageSnippetsUseCase:
-    """Pytest test class for ManageSnippetsUseCase"""
-
-    @pytest.fixture(autouse=True)
-    def setup_method(self):
-        """Setup ManageSnippetsUseCase instance before each test"""
-        self.instance = ManageSnippetsUseCase()
-        yield
-        self.instance = None
-
-    @pytest.mark.skip(reason="Test case not implemented yet")
-    def test_set_root_directory(self):
-        """Test set_root_directory method"""
-        pass
-
-    @pytest.mark.skip(reason="Test case not implemented yet")
-    def test_add(self):
-        """Test add method"""
-        pass
-
-    @pytest.mark.skip(reason="Test case not implemented yet")
-    def test_update(self):
-        """Test update method"""
-        pass
-
-    @pytest.mark.skip(reason="Test case not implemented yet")
-    def test_get(self):
-        """Test get method"""
-        pass
-
-    @pytest.mark.skip(reason="Test case not implemented yet")
-    def test_delete(self):
-        """Test delete method"""
         pass

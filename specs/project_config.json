@@ -1,7 +1,7 @@
 {
   "project_name": "devOS",
   "home_root": {
-    "snippets": ["protocol", "devOS", "snippets"]
+    "snippets": ["protocol", "automation_engine", "wiki", "Snippets"]
   },
   "project_root": {
     "dao_output_config": [

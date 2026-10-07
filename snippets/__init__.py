@@ -1,1 +1,0 @@
-"""Reusable devOS project snippets."""

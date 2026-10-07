@@ -22,6 +22,23 @@ INVALID_PATH_CHARACTERS = frozenset('<>:"/\\|?*')
 
 CONFIG_SNIPPET_FILE_NAMES = ("configs.py", "credentials.py")
 
+
+def configuration_bundle_support(
+    source_directory: pathlib.Path, config_import: str
+) -> dict[str, str]:
+    """Render the companion tests and setup files for an installed config package."""
+    support = {
+        "docs/snippets/config/" + name: (source_directory / name).read_text(encoding="utf-8")
+        for name in ("README.md", "requirements.txt", "requirements-test.txt", ".env.example")
+    }
+    for test in sorted((source_directory / "tests").glob("test_*.py")):
+        support["tests/snippets/config/" + test.name] = test.read_text(encoding="utf-8").replace(
+            "from config import credentials", f"from {config_import} import credentials"
+        )
+    if not any(name.startswith("tests/") for name in support):
+        raise ValueError("The configuration bundle must include offline tests.")
+    return support
+
 # Matches one environment assignment. The prefix captures everything up to
 # and including the equals sign and any padding, so indentation, "export ",
 # and spacing around the sign all survive a value being swapped in.
@@ -255,6 +272,47 @@ class ManageCredentialsUseCase:
         general_bundle.merge(values)
         self.__store_bundle(GENERAL_CREDENTIALS_KEY, general_bundle)
 
+    def compare_project_credentials(
+        self, values: dict[str, entities.JSONValue]
+    ) -> dict[str, list[str]]:
+        """Compare incoming values without exposing them or changing the store."""
+        bundle = self.__load_bundle(self.__project_key())
+        comparison: dict[str, list[str]] = {"missing": [], "identical": [], "conflicting": []}
+        for key, value in sorted(values.items()):
+            entities.CredentialBundle.validate_key(key)
+            if key not in bundle.keys():
+                comparison["missing"].append(key)
+            elif bundle.get(key) == value:
+                comparison["identical"].append(key)
+            else:
+                comparison["conflicting"].append(key)
+        return comparison
+
+    def import_project_credentials(
+        self, values: dict[str, entities.JSONValue], resolutions: dict[str, str]
+    ) -> None:
+        """Merge agreed values and verify both the bundle and project registry."""
+        bundle = self.__load_bundle(self.__project_key())
+        for key, value in values.items():
+            entities.CredentialBundle.validate_key(key)
+            if key in bundle.keys() and bundle.get(key) != value:
+                choice = resolutions.get(key)
+                if choice not in {"local", "stored"}:
+                    raise ValueError(f"Choose local or stored for credential key {key}")
+        incoming = {
+            key: value for key, value in values.items()
+            if key not in bundle.keys() or bundle.get(key) == value or resolutions.get(key) == "local"
+        }
+        expected = bundle.combine(entities.CredentialBundle.from_json_value(incoming, self.__project_key()))
+        if expected.values() != bundle.values() or self.__credential_database.get(self.__project_key()) is None:
+            self.__store_bundle(self.__project_key(), expected)
+        if self.__project_name not in self.__load_registry().names():
+            self.__register_project(self.__project_name)
+        if self.__load_bundle(self.__project_key()).values() != expected.values():
+            raise RuntimeError("Credential bundle readback did not match the imported values")
+        if self.__project_name not in self.__load_registry().names():
+            raise RuntimeError("Credential project registry readback did not include the project")
+
     def store_project_credentials(
         self, project_name: str, values: dict[str, entities.JSONValue]
     ) -> None:
@@ -304,6 +362,8 @@ class ManageCredentialsUseCase:
     def get_global_secret(self, key: str) -> None:
         """Copy one general credential to the clipboard without printing it."""
         value = self.__load_bundle(GENERAL_CREDENTIALS_KEY).get(key)
+        if value is None:
+            raise KeyError(f"General secret key {key} is absent")
         pyperclip.copy(value if isinstance(value, str) else json.dumps(value))
         print(f"Copied {key} to the clipboard")
 
@@ -481,7 +541,7 @@ class ManageCredentialsUseCase:
         Parameters
         ----------
         snippets_root
-            Root of the devOS snippets directory.
+            Root of automation_engine's wiki/Snippets library.
         project_config
             Configuration naming where the project keeps its infrastructure code.
         """
@@ -490,18 +550,28 @@ class ManageCredentialsUseCase:
         destination_directory = self.__project_root.joinpath(*adapters_directory[:-1])
 
         source_directory = pathlib.Path(snippets_root) / "python" / "config"
-        destinations = [
-            destination_directory / file_name for file_name in CONFIG_SNIPPET_FILE_NAMES
-        ]
-        for destination in destinations:
+        relative_directory = destination_directory.relative_to(self.__project_root)
+        import_parts = relative_directory.parts
+        if import_parts and import_parts[0] == "src":
+            import_parts = import_parts[1:]
+        rendered = configuration_bundle_support(source_directory, ".".join(import_parts))
+        rendered.update({
+            (relative_directory / name).as_posix(): (source_directory / name).read_bytes().decode("utf-8")
+            for name in CONFIG_SNIPPET_FILE_NAMES
+        })
+        for name in rendered:
+            destination = self.__project_root / name
             if destination.exists():
                 raise FileExistsError(
                     f"{destination} already exists. Remove it before running setup again."
                 )
 
-        destination_directory.mkdir(parents=True, exist_ok=True)
-        for file_name, destination in zip(CONFIG_SNIPPET_FILE_NAMES, destinations):
-            shutil.copyfile(source_directory / file_name, destination)
+        for name, content in rendered.items():
+            destination = self.__project_root / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content.encode("utf-8"))
         print(
             f"Copied the credential configuration bundle into {destination_directory}"
         )
+        print("Merge docs/snippets/config/requirements.txt into runtime dependencies and "
+              "requirements-test.txt into test dependencies, then run the copied offline tests.")

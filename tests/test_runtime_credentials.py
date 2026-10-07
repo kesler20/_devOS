@@ -7,7 +7,7 @@ import pathlib
 import pytest
 import redis
 
-from snippets.python.config import credentials
+from config import credentials
 
 
 class FakeNoSQLDatabase:
