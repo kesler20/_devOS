@@ -31,7 +31,11 @@ dependencies = [
     "types-tqdm>=4.67.0.20250809",
     "types-pyperclip>=1.9.0.20241221",
     "colorama>=0.4.6",
+    "sqlglot>=29",
 ]
+
+[project.optional-dependencies]
+prefect = ["prefect>=3.0"]
 
 [project.scripts]
 dev = "devOS:main"
@@ -44,17 +48,24 @@ build-backend = "uv_build"
 mypy_path = "src"
 namespace_packages = true
 explicit_package_bases = true
-exclude = "src/devos/use_cases/templates"
 
 [tool.pytest.ini_options]
 addopts = "-v --strict-markers --cov=devOS --cov-report=html"
-pythonpath = [".", "src", "../automation_engine/wiki/Snippets/python"]
+pythonpath = [".", "src", "tests/fixtures/consumer_support/python"]
 testpaths = [
     "tests",
 ]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+
+[dependency-groups]
+dev = [
+    "black>=26.10.1",
+    "jsonschema>=4.25",
+    "psycopg[binary]>=3.2",
+    "types-colorama>=0.4.15.20260508",
+]
 
 [[tool.mypy.overrides]]
 module = "devOS.*"

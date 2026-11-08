@@ -1,8 +1,9 @@
-from git import Repo
+import logging
+import git as git
 import enum
 import typing
-from random import randint
-from devOS.use_cases import use_cases
+import random as random
+from devOS.infrastructure import os_adapter
 import os
 
 import devOS.use_cases.utils.file_io as file_io
@@ -19,7 +20,7 @@ class TypesOFRelease(enum.Enum):
 TypeOfReleaseTypes = typing.Literal["major", "minor", "fix"]
 
 
-class ManageGitRepositoryUseCase(use_cases.OSInterface):
+class ManageGitRepositoryUseCase:
     """Manage git repository releases and commit workflows.
 
     Attributes
@@ -28,7 +29,7 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         Repository object for the current project.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, console: os_adapter.OperatingSystemAdapter) -> None:
         """Initialize repository manager for the current repo.
 
         Parameters
@@ -37,25 +38,27 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
             Application type used to resolve version handling, by default
             SupportedLanguages.PYTHON.
         """
-        super().__init__(os.getcwd())
-        self.current_repo = Repo(".", search_parent_directories=True)
+        self.__console = console
+        self.current_repo = git.Repo(".", search_parent_directories=True)
 
-    def _fetch_remote_tags(self):
+    def __fetch_remote_tags(self):
         """Fetch tags from remote to ensure local tags are up-to-date."""
         try:
-            self.execute_command("git fetch --tags")
+            self.__console.execute_command("git fetch --tags")
         except Exception as e:
-            self.log_message(f"Failed to fetch remote tags: {e}", error=True)
+            self.__console.log_message(f"Failed to fetch remote tags: {e}", error=True)
 
     @property
     def latest_version(self):
         # Fetch remote tags first
-        self._fetch_remote_tags()
+        logging.info("Starting latest_version")
+        self.__fetch_remote_tags()
         tags = sorted(self.current_repo.tags, key=lambda t: t.commit.committed_datetime)
         if tags:
             latest_tag = str(tags[-1])
         else:
             latest_tag = "v0.0.0"
+        logging.info("Completed latest_version")
         return latest_tag
 
     def __style_commit_message(self, commit_message: str) -> str:
@@ -106,7 +109,7 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         elif commit_message.startswith("-f "):
             message_prefix = "feat:"
             message_suffix = code_commit_message_emojis[
-                randint(0, len(code_commit_message_emojis) - 1)
+                random.randint(0, len(code_commit_message_emojis) - 1)
             ]
             commit_message = commit_message.replace("-f ", " ")
 
@@ -163,7 +166,7 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         major, minor, patch = map(int, self.latest_version[1:].split("."))
         patch += 1
         new_version = f"v{major}.{minor}.{patch}"
-        self.execute_command(f"git tag {new_version}")
+        self.__console.execute_command(f"git tag {new_version}")
         return new_version
 
     def __increase_minor_change_version(self) -> str:
@@ -171,7 +174,7 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         minor += 1
         patch = 0  # Reset patch version after minor version increment
         new_version = f"v{major}.{minor}.{patch}"
-        self.execute_command(f"git tag {new_version}")
+        self.__console.execute_command(f"git tag {new_version}")
         return new_version
 
     def __increase_major_change_version(self) -> str:
@@ -181,7 +184,7 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
             0  # Reset minor and patch versions after major version increment
         )
         new_version = f"v{major}.{minor}.{patch}"
-        self.execute_command(f"git tag {new_version}")
+        self.__console.execute_command(f"git tag {new_version}")
         return new_version
 
     def create_release_tag(self, release_type: TypeOfReleaseTypes) -> str | None:
@@ -198,6 +201,7 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         str or None
             The new version string if successful, otherwise None.
         """
+        logging.info("Starting create_release_tag")
         release_type_map = {
             TypesOFRelease.FIX.value: self.__increase_patch_version,
             TypesOFRelease.MINOR.value: self.__increase_minor_change_version,
@@ -205,23 +209,27 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         }
         release_action = release_type_map.get(release_type)
         if release_action is None:
-            self.log_message(
+            self.__console.log_message(
                 f"Failed to release the latest changes ❌ for: {self.latest_version}",
                 error=True,
             )
-            self.log_message(
+            self.__console.log_message(
                 "Select one of the following: major, minor, fix", error=True
             )
+            logging.info("Completed create_release_tag")
             return None
 
         # Update the version by creating a new tag
         new_version = release_action()
-        self.log_message(f"Updating the version number to {new_version}")
+        self.__console.log_message(f"Updating the version number to {new_version}")
+        logging.info("Completed create_release_tag")
         return new_version
 
     def display_current_version(self) -> None:
         """Print the latest version tag to stdout."""
+        logging.info("Starting display_current_version")
         print(self.latest_version)
+        logging.info("Completed display_current_version")
 
     def delete_tag(self, tag_name):
         """Delete a tag locally and on the remote.
@@ -231,8 +239,10 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         tag_name : str
             Tag name to delete.
         """
-        self.execute_command(f"git tag -d {tag_name}")
-        self.execute_command(f"git push --delete origin {tag_name}")
+        logging.info("Starting delete_tag")
+        self.__console.execute_command(f"git tag -d {tag_name}")
+        self.__console.execute_command(f"git push --delete origin {tag_name}")
+        logging.info("Completed delete_tag")
 
     def add_commit_message(self, *args, push: bool = True) -> None:
         """Create and optionally push a commit with a styled message.
@@ -266,14 +276,15 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
 
         devOS commit
         """
-        self.execute_command("git pull")
+        logging.info("Starting add_commit_message")
+        self.__console.execute_command("git pull")
 
         # build commit message
         if len(args) == 1:
             commit_message = args[0]
         elif len(args) == 0:
             # if no commit message is provided, show the git diff
-            self.execute_command("git diff")
+            self.__console.execute_command("git diff")
             raw_user_input = input("Enter your commit message: ").strip()
 
             # if no commit message is provided, use a default one.
@@ -287,11 +298,12 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         styled_commit_message = self.__style_commit_message(commit_message)
 
         # add commit message and push
-        self.execute_command("git add .")
-        self.execute_command(f'git commit -m "{styled_commit_message}"')
+        self.__console.execute_command("git add .")
+        self.__console.execute_command(f'git commit -m "{styled_commit_message}"')
         if push:
-            self.execute_command("git push")
+            self.__console.execute_command("git push")
             print("\nnew commit pushed successfully ✨\n", styled_commit_message)
+        logging.info("Completed add_commit_message")
 
     def release_new_version(self, *args) -> None:
         """Release a new version and tag the repository.
@@ -310,10 +322,12 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         devOS release major
         """
         # if no release type is provided, show error message
+        logging.info("Starting release_new_version")
         if len(args) != 1:
-            self.log_message(
+            self.__console.log_message(
                 "Select one of the following: major, minor, fix", error=True
             )
+            logging.info("Completed release_new_version")
             return
 
         # the first item in the args is the release type
@@ -326,14 +340,14 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
         if new_version:
 
             # update uv and package.json files with the new version.
-            self.execute_command(f"uv version {new_version.replace('v', '')}")
+            self.__console.execute_command(f"uv version {new_version.replace('v', '')}")
             if file_io.File("package.json").exists():
-                self.execute_command(
+                self.__console.execute_command(
                     f"npm version {new_version.replace('v', '')} --no-git-tag-version"
                 )
             else:
-                self.log_message("trying again in the frontend folder...")
-                self.execute_command(
+                self.__console.log_message("trying again in the frontend folder...")
+                self.__console.execute_command(
                     f"cd frontend && npm version {new_version.replace('v', '')} --no-git-tag-version && cd .."
                 )
 
@@ -342,7 +356,10 @@ class ManageGitRepositoryUseCase(use_cases.OSInterface):
             self.add_commit_message(*commit_message, push=False)
 
             # add the new tag and push it to the remote repo
-            self.execute_command(f"git push origin {new_version}")
-            self.log_message(f"🎉 Successfully released new version: {new_version} 🚀")
+            self.__console.execute_command(f"git push origin {new_version}")
+            self.__console.log_message(
+                f"🎉 Successfully released new version: {new_version} 🚀"
+            )
         else:
-            self.log_message("Failed to release new version", error=True)
+            self.__console.log_message("Failed to release new version", error=True)
+        logging.info("Completed release_new_version")

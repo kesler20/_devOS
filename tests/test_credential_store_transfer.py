@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from conftest import FakeNoSQLDatabase
+
 import fnmatch
 import json
 import pathlib
@@ -8,26 +10,6 @@ import pytest
 
 import devOS.domain.entities as entities
 import devOS.use_cases.manage_credentials as manage_credentials
-
-
-class FakeNoSQLDatabase:
-    def __init__(self, values: dict[str, entities.JSONValue] | None = None) -> None:
-        self.values: dict[str, entities.JSONValue] = (
-            {} if values is None else json.loads(json.dumps(values))
-        )
-
-    def put(self, key, value):
-        self.values[key] = json.loads(json.dumps(value))
-        return True
-
-    def get(self, key):
-        return self.values.get(key)
-
-    def delete(self, key):
-        return self.values.pop(key, None) is not None
-
-    def keys(self, pattern):
-        return sorted(key for key in self.values if fnmatch.fnmatch(key, pattern))
 
 
 SOURCE_STORE: dict[str, entities.JSONValue] = {
@@ -163,10 +145,10 @@ def test_export_refuses_a_key_that_would_escape_the_export_root(
 
 
 def test_a_key_name_holding_a_dot_keeps_its_full_name() -> None:
-    relative_path = manage_credentials.document_relative_path("devos:projects:my.app")
+    relative_path = manage_credentials.get_document_relative_path("devos:projects:my.app")
 
     assert relative_path.as_posix() == "projects/my.app.json"
     assert (
-        manage_credentials.storage_key_from_document_path(relative_path)
+        manage_credentials.get_storage_key_from_document_path(relative_path)
         == "devos:projects:my.app"
     )

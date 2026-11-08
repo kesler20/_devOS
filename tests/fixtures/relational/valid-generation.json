@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "namespaces": [
+    {
+      "id": "public",
+      "name": {
+        "name": "public",
+        "quoted": false
+      },
+      "description": null
+    }
+  ],
+  "enums": [],
+  "tables": [
+    {
+      "id": "generated",
+      "namespace_id": "public",
+      "name": {
+        "name": "generated",
+        "quoted": false
+      },
+      "description": null,
+      "columns": [
+        {
+          "id": "generated_id",
+          "name": {
+            "name": "key",
+            "quoted": false
+          },
+          "type": {
+            "name": "bigint",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": {
+            "generation": "by_default",
+            "start": 5,
+            "increment": 2,
+            "min_value": 1,
+            "max_value": 999,
+            "cache": 3,
+            "cycle": true
+          }
+        },
+        {
+          "id": "generated_label",
+          "name": {
+            "name": "label",
+            "quoted": false
+          },
+          "type": {
+            "name": "text",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": "'new'",
+          "serial": false,
+          "identity": null
+        }
+      ],
+      "constraints": [
+        {
+          "id": "generated_pk",
+          "kind": "primary_key",
+          "name": null,
+          "column_ids": [
+            "generated_id"
+          ],
+          "deferrable": false,
+          "initially_deferred": false
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "id": "serial",
+      "namespace_id": "public",
+      "name": {
+        "name": "serial_table",
+        "quoted": false
+      },
+      "description": null,
+      "columns": [
+        {
+          "id": "serial_key",
+          "name": {
+            "name": "key",
+            "quoted": false
+          },
+          "type": {
+            "name": "integer",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": null,
+          "serial": true,
+          "identity": null
+        },
+        {
+          "id": "serial_extra",
+          "name": {
+            "name": "sequence_number",
+            "quoted": false
+          },
+          "type": {
+            "name": "smallint",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": null,
+          "serial": true,
+          "identity": null
+        }
+      ],
+      "constraints": [
+        {
+          "id": "serial_pk",
+          "kind": "primary_key",
+          "name": null,
+          "column_ids": [
+            "serial_key"
+          ],
+          "deferrable": false,
+          "initially_deferred": false
+        }
+      ],
+      "indexes": []
+    }
+  ],
+  "diagram": null,
+  "orm": null
+}

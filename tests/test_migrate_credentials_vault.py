@@ -1,76 +1,43 @@
-from __future__ import annotations
-
-import json
-import pathlib
-
-import devOS.infrastructure.adapters as adapters
-import devOS.use_cases.manage_credentials as manage_credentials
-import scripts.migrate_credentials_vault as migrate_credentials_vault
+from pathlib import Path
+import dotenv
+import pytest
+from devOS.infrastructure.credential_vault import JSONCredentialVaultAdapter, VaultError
+from devOS.use_cases import migrate_credential_store as migration
 
 
-class FakeNoSQLDatabase:
-    def __init__(self) -> None:
-        self.values: dict[str, adapters.JSONValue] = {}
+class Client:
+    connection_pool = type("Pool", (), {"connection_kwargs": {}})()
 
-    def put(self, key, value):
-        self.values[key] = json.loads(json.dumps(value))
-        return True
+
+class Remote:
+    def __init__(self, client):
+        pass
+
+    def keys(self, pattern):
+        return ["devos:projects:sample"]
 
     def get(self, key):
-        return self.values.get(key)
-
-    def delete(self, key):
-        return self.values.pop(key, None) is not None
+        return {"ROOT": "root-value"} if key == "devos:general" else {"TOKEN": "remote"}
 
 
-def test_legacy_migration_imports_only_managed_records_and_is_idempotent(
-    tmp_path: pathlib.Path, capsys
-) -> None:
-    legacy_vault = tmp_path / "legacy"
-    project_directory = legacy_vault / "dotenv" / "sample"
-    project_directory.mkdir(parents=True)
-    (project_directory / "dotenv_sample.txt").write_text(
-        "PROJECT_TOKEN=project-secret\n", encoding="utf-8"
+def test_verified_migration_and_explicit_conflict_choice(tmp_path, monkeypatch):
+    root = tmp_path / "sample"
+    root.mkdir()
+    (root / ".env").write_text("devos_redis_host=fake\nTOKEN=local\n")
+    monkeypatch.setattr(
+        migration.credential_cli, "get_project_name", lambda root: "sample"
     )
-    (project_directory / "dotenv_example_sample.txt").write_text(
-        "PROJECT_TOKEN=\n", encoding="utf-8"
-    )
-    secrets_directory = legacy_vault / "secrets"
-    secrets_directory.mkdir()
-    (secrets_directory / "global_secret_GENERAL_TOKEN.txt").write_text(
-        "general-secret", encoding="utf-8"
-    )
-    unmanaged_directory = secrets_directory / "certificate_bundle"
-    unmanaged_directory.mkdir()
-    (unmanaged_directory / "private.pem").write_text(
-        "private-file-value", encoding="utf-8"
-    )
-    (legacy_vault / "passwords.md").write_text(
-        "unmanaged-password", encoding="utf-8"
-    )
-
-    database = FakeNoSQLDatabase()
-    credentials_use_case = manage_credentials.ManageCredentialsUseCase(
-        database=database,
-        project_name="migration",
-        project_root=tmp_path,
-    )
-    migration = migrate_credentials_vault.LegacyCredentialsMigrationUseCase(
-        legacy_vault=legacy_vault,
-        credentials_use_case=credentials_use_case,
-    )
-
-    migration.execute()
-    migration.execute()
-
-    assert database.values[manage_credentials.GENERAL_CREDENTIALS_KEY] == {
-        "GENERAL_TOKEN": "general-secret"
-    }
-    assert database.values["devos:projects:sample"] == {
-        "PROJECT_TOKEN": "project-secret"
-    }
-    assert "private-file-value" not in json.dumps(database.values)
-    assert "unmanaged-password" not in json.dumps(database.values)
-    captured = capsys.readouterr()
-    assert "project-secret" not in captured.out
-    assert "general-secret" not in captured.out
+    monkeypatch.setattr(migration.adapters, "build_redis_client", lambda e: Client())
+    monkeypatch.setattr(migration.adapters, "RedisNoSQLAdapter", Remote)
+    vault = JSONCredentialVaultAdapter(tmp_path / "vault")
+    with pytest.raises(VaultError, match="Conflicting"):
+        migration.MigrateCredentialStoreUseCase(
+            vault, lambda _: Client(), Remote
+        ).execute([root])
+    assert not vault.path.exists()
+    result = migration.MigrateCredentialStoreUseCase(
+        vault, lambda _: Client(), Remote
+    ).execute([root], {"sample": {"TOKEN"}})
+    assert result.redis_verified == ["sample"]
+    assert vault.read() == {"ROOT": "root-value", "project_sample": {"TOKEN": "local"}}
+    assert dotenv.dotenv_values(root / ".env")["TOKEN"] == "local"

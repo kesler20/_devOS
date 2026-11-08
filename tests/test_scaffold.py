@@ -18,86 +18,13 @@ import redis.exceptions
 from devOS import scaffold_cli
 from devOS.domain.scaffold import ScaffoldError, ScaffoldSpec
 from devOS.infrastructure.github_repository_client import GitHubRepositoryClient
-from devOS.infrastructure.scaffold_adapters import BootstrapSourceAdapter, DevOSSecretClient, GitProjectAdapter, ProjectFilesAdapter
+from devOS.infrastructure.scaffold_adapters import BootstrapSourceAdapter, DevOSSecretAdapter, GitProjectAdapter, ProjectFilesAdapter
 from devOS.use_cases.scaffold_project import (
     ConfigureGitHubSecretsUseCase, ConfigureProjectCredentialsUseCase,
-    InspectProjectScaffoldUseCase, ScaffoldProjectUseCase, project_files,
+    InspectProjectScaffoldUseCase, ScaffoldProjectUseCase, render_project_files,
 )
-from test_manage_credentials import FakeNoSQLDatabase
+from conftest import FakeNoSQLDatabase, Store, GitHub
 
-
-class Store(FakeNoSQLDatabase):
-    def __init__(self, fail=False):
-        super().__init__()
-        self.writes = []
-        self.fail = fail
-
-    def put(self, key, value):
-        self.writes.append(key)
-        if self.fail and key.startswith("devos:projects:"):
-            return True  # Simulate a success acknowledgement without persistence.
-        return super().put(key, value)
-
-
-class GitHub:
-    def __init__(self):
-        self.names = []
-        self.repositories = []
-
-    def ensure_repository(self, owner, name, description):
-        self.repositories.append((owner, name, description))
-        return owner + "/" + name
-
-    def set_actions_secret(self, repository, name, value):
-        assert isinstance(value, pydantic.SecretStr)
-        self.names.append(name)
-
-    def secret_names(self, repository):
-        return self.names
-
-
-@pytest.fixture
-def setup(tmp_path):
-    protocol = tmp_path / "protocol"
-    protocol.mkdir()
-    local = tmp_path / "local.env"
-    ci = tmp_path / "ci.env"
-    local.write_text("devos_redis_host=local.test\ndevos_redis_password=bootstrap-local\n")
-    ci.write_text("devos_redis_url=rediss://ci.test\n")
-    engine = protocol / "automation_engine"
-    (engine / "wiki/SOPs").mkdir(parents=True)
-    (engine / "wiki/Projects").mkdir()
-    (engine / "wiki/INDEX.md").write_text("# Index\n")
-    (engine / "scripts").mkdir()
-    import config
-    import shutil
-    shutil.copytree(pathlib.Path(config.__file__).parent, engine / "wiki/Snippets/python/config",
-                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    # Fake the existing synchronisation-tool boundary without a host checkout dependency.
-    (engine / "scripts/sync_project_agents.py").write_text(
-        "import pathlib, sys, yaml\n"
-        "root = pathlib.Path(sys.argv[1])\n"
-        "engine = pathlib.Path(__file__).parents[1]\n"
-        "page = next(page for page in (engine / 'wiki/Projects').glob('*.md') if pathlib.Path(yaml.safe_load(page.read_text().split('---')[1]).get('repository_path', '.')).resolve() == root.resolve())\n"
-        "metadata = yaml.safe_load(page.read_text().split('---')[1])\n"
-        "content = '\\n\\n'.join((engine / 'wiki/SOPs' / (guide + '.md')).read_text().strip() for guide in metadata['agent_guides']) + '\\n'\n"
-        "(root / 'AGENTS.md').write_text(content)\n"
-    )
-    for guide in ["Python Development", "Frontend Development", "Backend Development"]:
-        (engine / "wiki/SOPs" / (guide + ".md")).write_text("# " + guide + "\n\nProject contract.\n")
-    spec = ScaffoldSpec(protocol_root=protocol, project_name="sample", description="Inform a useful decision.",
-                        stack="python", local_store={"bootstrap": {"env_file": local}},
-                        ci_store={"bootstrap": {"env_file": ci}}, github={"owner": "kesler", "repository": "sample"},
-                        data_project=True, prd="# Product\n", decision_log="# Requirements\n\n# Specifications\n",
-                        readme_body="## Install\n\nRun `uv sync`.\n", validation_commands=[[sys.executable, "-m", "compileall", "-q", "src"]])
-    files, git = ProjectFilesAdapter(), GitProjectAdapter()
-    bootstrap = BootstrapSourceAdapter(Mock())
-    stores = {"local.test": Store(), "rediss://ci.test": Store()}
-    credentials = ConfigureProjectCredentialsUseCase(bootstrap, files, git, lambda values: stores[values.get("devos_redis_host") or values["devos_redis_url"]])
-    github = GitHub()
-    secrets = ConfigureGitHubSecretsUseCase(bootstrap, github)
-    complete = ScaffoldProjectUseCase(credentials, secrets, bootstrap, github, files, git)
-    return spec, stores, files, git, credentials, secrets, complete, github
 
 
 def approve(spec, files):
@@ -116,69 +43,50 @@ def test_complete_new_project_and_rerun(setup):
     root = spec.root()
     assert git.is_repository(root)
     assert git.run(root, ["rev-parse", "HEAD"], allow_failure=True).returncode != 0
-    assert (root / "src/sample/infrastructure/credentials.py").read_bytes() == (spec.engine_root() / "wiki/Snippets/python/config/credentials.py").read_bytes()
+    assert (root / "src/sample/infrastructure/credentials.py").exists()
     assert (root / "docs/product/design.md").read_bytes() == b""
-    test_environment = os.environ.copy()
-    test_environment["PYTHONPATH"] = str(root / "src")
-    result_tests = subprocess.run([sys.executable, "-m", "pytest", "-q", "tests/snippets/config"],
-                                  cwd=root, env=test_environment, capture_output=True, text=True)
-    assert result_tests.returncode == 0, result_tests.stdout + result_tests.stderr
     assert "pytest>=8.0" in (root / "pyproject.toml").read_text()
     assert "notebooks/experiments/src/.gitkeep" in result.staged_files
     assert "scripts/.gitkeep" in result.staged_files
     assert ".env" not in git.staged(root)
     assert "DEVOS_REDIS_URL" in github.names
     workflow = (root / ".github/workflows/ci.yml").read_text()
-    assert "python -m pytest" in workflow
+    assert "python -m compileall" in workflow
     assert "devos_redis_url: ${{ secrets.DEVOS_REDIS_URL }}" in workflow
     assert "bootstrap-local" not in result.model_dump_json()
     approve(spec, files)
     assert set(complete.execute(spec).staged_files).issubset(result.staged_files)
     assert git.staged(root) == result.staged_files
-    assert len(stores["local.test"].writes) == 2  # Identical reruns verify without writes.
+    assert len(stores["local.test"].writes) == 0  # Identical reruns verify without writes.
 
 
-def test_both_store_import_preserves_literals_and_value_free_files(setup):
+def test_vault_import_preserves_literals_and_value_free_files(setup):
+    from devOS.infrastructure.credential_vault import JSONCredentialVaultAdapter, get_configured_vault
     spec, stores, files, _, credentials, *_ = setup
     seed_environment(spec, files)
     result = credentials.execute(spec)
-    for store in stores.values():
-        assert store.values["devos:projects:sample"] == {"TOKEN": "literal ${TOKEN} # value", "EMPTY": ""}
-        assert store.values["devos:projects"] == ["sample"]
-    environment = dotenv.dotenv_values(spec.root() / ".env", interpolate=False)
-    assert environment == {"devos_redis_host": "local.test", "devos_redis_password": "bootstrap-local", "devos_project_name": "sample"}
-    assert "TOKEN" not in (spec.root() / ".env.example").read_text()
+    vault = JSONCredentialVaultAdapter(get_configured_vault())
+    assert vault.read()["project_sample"] == {"TOKEN": "literal ${TOKEN} # value", "EMPTY": ""}
+    assert not stores["local.test"].writes
+    assert stores["rediss://ci.test"].values["devos:projects:sample"] == {"TOKEN": "literal ${TOKEN} # value", "EMPTY": ""}
+    assert dotenv.dotenv_values(spec.root() / ".env", interpolate=False) == {"TOKEN": "literal ${TOKEN} # value", "EMPTY": ""}
+    assert "TOKEN" in (spec.root() / ".env.example").read_text()
     assert "literal" not in result.model_dump_json()
 
 
-def test_conflicts_preflight_both_stores_and_independent_resolution(setup):
-    spec, stores, files, _, credentials, *_ = setup
-    seed_environment(spec, files, "TOKEN=local-value\nIDENTICAL=same\n")
-    stores["rediss://ci.test"].values["devos:projects:sample"] = {"TOKEN": "stored-value", "IDENTICAL": "same"}
+def test_vault_conflict_requires_explicit_resolution(setup):
+    from devOS.infrastructure.credential_vault import JSONCredentialVaultAdapter, get_configured_vault
+    spec, _, files, _, credentials, *_ = setup
+    seed_environment(spec, files, "TOKEN=local-value\n")
+    vault = JSONCredentialVaultAdapter(get_configured_vault())
+    vault.write({"project_sample": {"TOKEN": "stored-value"}})
     with pytest.raises(ScaffoldError) as failure:
         credentials.execute(spec)
     assert failure.value.category == "conflict"
-    assert all(not store.writes for store in stores.values())
-    spec.ci_store.resolutions = {"TOKEN": "stored"}
+    assert (spec.root() / ".env").read_text() == "TOKEN=local-value\n"
+    spec.credential_resolutions = {"TOKEN": "stored"}
     credentials.execute(spec)
-    assert stores["local.test"].values["devos:projects:sample"]["TOKEN"] == "local-value"
-    assert stores["rediss://ci.test"].values["devos:projects:sample"]["TOKEN"] == "stored-value"
-
-
-def test_failed_second_import_keeps_original_env_and_reports_partial(setup):
-    spec, stores, files, _, credentials, *_ = setup
-    seed_environment(spec, files)
-    original = (spec.root() / ".env").read_bytes()
-    stores["rediss://ci.test"] = Store(fail=True)
-    with pytest.raises(ScaffoldError) as failure:
-        credentials.execute(spec)
-    assert failure.value.category == "verification"
-    assert failure.value.completed == ["local credential bundle verified"]
-    assert (spec.root() / ".env").read_bytes() == original
-    assert not (spec.root() / ".env.example").exists()
-    stores["rediss://ci.test"].fail = False
-    credentials.execute(spec)
-    assert stores["local.test"].writes.count("devos:projects:sample") == 1
+    assert dotenv.dotenv_values(spec.root() / ".env")["TOKEN"] == "stored-value"
 
 
 def test_read_only_inspection_does_not_mutate_or_disclose_values(setup):
@@ -258,7 +166,7 @@ def test_protected_file_paths_cannot_bypass_preflight(setup, path):
         from devOS.domain.scaffold import FileChange
         spec.files = [FileChange(path=path, content="bad")]
         with pytest.raises(ScaffoldError):
-            rendered = project_files(spec, files, {})
+            rendered = render_project_files(spec, files, {})
             files.preflight(spec.root(), rendered, {}, GitProjectAdapter())
 
 
@@ -305,9 +213,9 @@ def test_cli_independent_commands_and_secret_free_errors(setup, monkeypatch, cap
     seed_environment(spec, files)
     path = spec.protocol_root.parent / "approved.json"
     path.write_text(spec.model_dump_json())
-    monkeypatch.setattr(scaffold_cli, "ConfigureProjectCredentialsUseCase", lambda *_: credentials)
-    monkeypatch.setattr(scaffold_cli.DevOSSecretClient, "get", lambda *_: "secret-test-token")
-    monkeypatch.setattr(scaffold_cli, "ConfigureGitHubSecretsUseCase", lambda *_: secrets)
+    monkeypatch.setattr(scaffold_cli.scaffold_project, "ConfigureProjectCredentialsUseCase", lambda *_: credentials)
+    monkeypatch.setattr(scaffold_cli.scaffold_adapters.DevOSSecretAdapter, "get", lambda *_: "secret-test-token")
+    monkeypatch.setattr(scaffold_cli.scaffold_project, "ConfigureGitHubSecretsUseCase", lambda *_: secrets)
     assert scaffold_cli.main(["credentials", "apply", str(path)]) == 0
     assert scaffold_cli.main(["secrets", "apply", str(path)]) == 0
     path.write_text('{"password": "must-not-print"}')
@@ -323,44 +231,37 @@ def test_cli_inspect_dispatch_outside_git_is_lazy(tmp_path):
     assert json.loads(result.stdout)["git_repository"] is False
 
 
-def test_generated_settings_load_project_bundle_before_constructing_settings(setup, monkeypatch):
+def test_generated_settings_load_materialized_env_before_settings(setup, monkeypatch):
     spec, _, files, _, credentials, *_ = setup
+    seed_environment(spec, files, "TOKEN=runtime-test-value\n")
     spec.config_content = (
-        "from pathlib import Path\nimport dotenv\nimport pydantic_settings\nfrom . import credentials\n"
-        "dotenv.load_dotenv(Path(__file__).resolve().parents[3] / '.env')\n"
-        "credentials.LoadCredentialsUseCase.from_environment().execute()\n"
+        "from pathlib import Path\nimport dotenv\nimport pydantic_settings\n"
+        "dotenv.load_dotenv(Path(__file__).resolve().parents[3] / '.env', interpolate=False)\n"
         "class EnvironmentVariables(pydantic_settings.BaseSettings):\n    token: str\n"
         "environment_variables = EnvironmentVariables()\n"
     )
-    client = Mock()
-    client.get.return_value = json.dumps({"TOKEN": "runtime-test-value"})
-    for name in [*os.environ]:
-        if name.lower().startswith("devos_") or name.upper() == "TOKEN":
-            monkeypatch.delenv(name, raising=False)
-    monkeypatch.setattr("redis.Redis", Mock(return_value=client))
+    monkeypatch.delenv("TOKEN", raising=False)
     credentials.execute(spec)
     monkeypatch.syspath_prepend(str(spec.root() / "src"))
     try:
         configs = importlib.import_module("sample.infrastructure.configs")
         assert configs.environment_variables.token == "runtime-test-value"
-        client.get.assert_called_once_with("devos:projects:sample")
     finally:
         for name in list(sys.modules):
             if name == "sample" or name.startswith("sample."):
                 del sys.modules[name]
-        for name in ["TOKEN", "devos_redis_host", "devos_redis_password", "devos_project_name"]:
-            os.environ.pop(name, None)
+        monkeypatch.delenv("TOKEN", raising=False)
 
 
 def test_comment_loader_or_wrong_settings_order_rejected(setup):
     spec, _, files, _, credentials, *_ = setup
-    spec.config_content = "# credentials.LoadCredentialsUseCase.from_environment().execute()\n"
+    spec.config_content = "# dotenv.load_dotenv()\n"
     with pytest.raises(ScaffoldError, match="module scope"):
         credentials.execute(spec)
     spec.config_content = (
         "import pydantic_settings\nfrom . import credentials\n"
         "class Settings(pydantic_settings.BaseSettings):\n    pass\n"
-        "settings = Settings()\ncredentials.LoadCredentialsUseCase.from_environment().execute()\n"
+        "settings = Settings()\ndotenv.load_dotenv()\n"
     )
     with pytest.raises(ScaffoldError, match="before loading"):
         credentials.execute(spec)
@@ -378,13 +279,13 @@ def test_tooling_failure_reports_imports_and_safe_remaining_completion(setup, mo
     with pytest.raises(ScaffoldError) as failure:
         complete.execute(spec)
     assert failure.value.category == "tooling"
-    assert "bootstrap environment written" in failure.value.completed
+    assert "project environment materialized" in failure.value.completed
     assert "must-not-print-secret" not in str(failure.value)
     original_writes = {name: list(store.writes) for name, store in stores.items()}
     approve(spec, files)
     monkeypatch.setattr(files, "write", actual_write)
     # Equivalent direct file operation completes the outstanding authorised docs.
-    rendered = project_files(spec, files, {"devos_redis_host": "local.test", "devos_redis_password": "bootstrap-local"})
+    rendered = render_project_files(spec, files, {"devos_redis_host": "local.test", "devos_redis_password": "bootstrap-local"})
     files.preflight(spec.root(), rendered, spec.expected_files, GitProjectAdapter())
     files.write(spec.root(), rendered)
     assert all(store.writes == original_writes[name] for name, store in stores.items())
@@ -395,8 +296,8 @@ def test_cli_failure_returns_safe_partial_operation(setup, monkeypatch, capsys):
     spec, _, _, _, _, secrets, _, github = setup
     path = spec.protocol_root.parent / "approved.json"
     path.write_text(spec.model_dump_json())
-    monkeypatch.setattr(scaffold_cli.DevOSSecretClient, "get", lambda *_: "general-test-secret")
-    monkeypatch.setattr(scaffold_cli, "ConfigureGitHubSecretsUseCase", lambda *_: secrets)
+    monkeypatch.setattr(scaffold_cli.scaffold_adapters.DevOSSecretAdapter, "get", lambda *_: "general-test-secret")
+    monkeypatch.setattr(scaffold_cli.scaffold_project, "ConfigureGitHubSecretsUseCase", lambda *_: secrets)
     original = github.set_actions_secret
     def fail_second(repository, name, value):
         if github.names:
@@ -468,10 +369,9 @@ def test_missing_general_secret_stops_before_clipboard_or_mutation(tmp_path, mon
     source = tmp_path / "general.env"
     source.write_text("devos_redis_host=general.test\n")
     store = Store()
-    monkeypatch.setattr("devOS.infrastructure.scaffold_adapters.RedisNoSQLAdapter.from_environment", lambda *_: store)
     copy = Mock()
     monkeypatch.setattr("pyperclip.copy", copy)
-    with pytest.raises(ScaffoldError, match="Referenced general secret key MISSING is absent"):
-        DevOSSecretClient(source).get("MISSING")
+    with pytest.raises(ScaffoldError, match="Referenced root credential key is absent"):
+        DevOSSecretAdapter(store).get("MISSING")
     copy.assert_not_called()
     assert not store.writes

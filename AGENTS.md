@@ -1828,72 +1828,12 @@ ones that matter most.
   test? (section 14)
 - **Did you delete the old code**, rather than leaving a shim or alias? (section 1.3)
 
-## 16. Configs and Credentials
+## 16. Configs and credentials
 
-This is the default `configs.py`/`credentials.py` pair for a project that reads
-environment-backed settings and devOS-stored secrets. It is distinct from section
-1.3's module-level constants for one-off runnable scripts — use this section for a
-project's actual settings/secrets loading, section 1.3 for ad-hoc script parameters.
+Local projects load materialized .env before constructing typed settings. Use dotenv.load_dotenv(interpolate=False) so literal credential values survive loading. Keep one BaseSettings class with SecretStr for confidential fields, shared unwrapping and integration Enums. Non-secret constants remain module-level values.
 
-The canonical, reusable copy lives at
-`automation_engine/wiki/Snippets/python/config/configs.py` and
-`automation_engine/wiki/Snippets/python/config/credentials.py`. Follow [[Snippets]]
-to install the complete bundle, including adapted offline tests, dependencies and
-setup instructions. This project's infrastructure config pair is a worked example
-of the architecture adapted to its environment variables and folder constants.
+The canonical settings example lives in wiki/Snippets/python/config/configs.py. Install complete support under the Snippets SOP. Remote credential loading is optional. Standalone Redis and Prefect examples with LoadingCredsUseCase live in devOS/examples/credentials and work without the wiki checkout.
 
-### 16.1. `credentials.py`: load the devOS bundle, never edit per project
-
-Copy `credentials.py` byte-for-byte into every new project. It is infrastructure
-this owns collectively across projects, not something to fork or customise:
-
-- `LoadCredentialsUseCase.from_environment()` builds a Redis client from the
-  `devos_redis_*` bootstrap variables (`devos_redis_url`, or the
-  host/port/username/password/db/ssl set), resolves the project's credential
-  bundle name (`devos_project_name` env var, else the git remote name, else the
-  directory name, each with a warning), and reads the JSON object stored at
-  `devos:projects:<name>` in Redis.
-- `.execute()` overlays that bundle's keys onto `os.environ`, skipping any key
-  that is `null` in the bundle (falls back to whatever the shell/`.env` already
-  set) or that starts with the reserved `devos_` prefix.
-- With no Redis reachable, or no bundle stored, it logs a warning and leaves the
-  environment as `.env`/the shell set it — the same file works with or without
-  devOS configured for that project.
-
-### 16.2. `configs.py`: bootstrap, one settings object, per-integration Enums
-
-```python
-import dotenv
-from . import credentials
-
-dotenv.load_dotenv()
-credentials.LoadCredentialsUseCase.from_environment().execute()
-```
-
-This ordering is load-bearing: overlay the bundle before constructing the
-`pydantic_settings.BaseSettings` object, otherwise Pydantic snapshots the
-environment as it was before the bundle landed.
-
-- One `EnvironmentVariables(BaseSettings)` class lists every environment variable
-  the project reads, typed, with `pydantic.SecretStr` for anything secret and a
-  plain default for everything else. `.env` itself only needs the `devos_redis_*`
-  bootstrap lines — every other value lives in the Redis bundle.
-- A shared `unwrap_secret`/`_unwrap_secret` helper is the only place
-  `.get_secret_value()` is called.
-- Group related settings into small `enum.Enum` classes per integration (e.g.
-  `TickTickCreds`, `RedisConfigsCreds`), each member built from the one settings
-  instance, unwrapping secrets through that helper. Call sites read
-  `TickTickCreds.CLIENT_ID.value`, never the raw settings object or `os.environ`
-  directly.
-- Non-secret configuration that isn't a per-integration credential (folder paths,
-  constants, feature flags) stays as plain module-level values in the same file,
-  not forced into the Enum-per-credential shape.
-
-### 16.3. Adding or changing a secret
-
-Store and retrieve values with the devOS CLI (`dev set secrets <KEY> <VALUE>` /
-`dev get secrets <KEY>`, see the Confidential Information reference), never by
-hand-editing `.env` with a real value or committing one. Add the field to
-`EnvironmentVariables` with the right type, then add or extend its `Enum`.
+Store root values with dev set creds KEY VALUE and project values with --project. Existing keys require --force. Retrieve root values with dev get creds KEY --root through the clipboard. Materialize the assigned project bundle separately with dev materialise creds inside its Git repository. Imports update only the vault. Projects never inherit root credentials.
 
 ## Rationale

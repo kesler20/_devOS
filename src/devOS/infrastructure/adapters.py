@@ -7,7 +7,6 @@ import typing
 import redis
 from devOS.domain import entities
 
-
 REDIS_URL_VARIABLE = "devos_redis_url"
 REDIS_HOST_VARIABLE = "devos_redis_host"
 REDIS_PORT_VARIABLE = "devos_redis_port"
@@ -51,7 +50,7 @@ class RedisNoSQLAdapter:
         Object with ``set``, ``get``, and ``delete`` methods.
     """
 
-    def __init__(self, redis_client: typing.Any) -> None:
+    def __init__(self, redis_client: redis.Redis) -> None:
         self.__redis_client = redis_client
 
     @classmethod
@@ -70,6 +69,9 @@ class RedisNoSQLAdapter:
         if redis_client is None:
             return None
         return cls(redis_client)
+
+    def get_storage_identity(self, key: str) -> str:
+        return key
 
     def put(self, key: str, value: entities.JSONValue) -> bool:
         """Write a JSON-encoded value.

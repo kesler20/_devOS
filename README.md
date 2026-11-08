@@ -9,8 +9,6 @@
 code generation, local automation and credential setup to eliminate
 the gap between prototype and production code.
 
-![drawUML](assets/drawUML.png)
-
 ## Scaffold Protocol projects
 
 Use `my-scaffold-project` to research and agree product documentation and technical
@@ -35,143 +33,130 @@ the environment's `dev` executable. Live Actions verification follows a user pus
 
 ---
 
-## TL;DR — devOS in 5 Minutes
+## Relational authoring and generation
 
-### Assumptions
+Studio is a standalone ReactFlow editor for relational schemas. Open or export a
+portable JSON document and export PostgreSQL creation SQL. Optional table positions,
+colours and viewport travel with the document. Schema and resource commands work
+outside Git without credentials.
 
-- You are inside an active **git repository**
-- You have **Node.js** installed
-- The `dev` command is installed with `pipx`
+```text
+dev ui
+dev schema import-sql creation.sql --output schema.json
+dev schema validate schema.json
+dev schema sql schema.json --output schema.sql
+dev build dao schema.json --output src/consumer/dao.py
+dev build dto consumer.dao --python-output src/consumer/dto.py --typescript-output frontend/src/dto.ts
+dev build api consumer.dao --dto-module consumer.dto --crud-module consumer.crud --session-module consumer.database --output src/consumer/routes.py
+dev build tests contracts consumer.dao --dto-module consumer.dto --output tests/test_resource_contracts.py
+dev build tests api src/consumer/custom_routes.py --module consumer.app --output tests/test_custom_routes.py
+dev build tests services src/consumer/use_cases.py --module consumer.use_cases --output tests/test_custom_use_cases.py
+```
 
-### Configure a Project
+Import SQL to initialize a new document. Author later changes in Studio. The
+relational document derives SQL and SQLAlchemy DAOs. Mapped DAO metadata derives
+Python/Pydantic and TypeScript/Zod resource contracts, default FastAPI routers and
+CRUD contract tests. Generated files have designated ownership. Regeneration
+preserves installed support, application startup, configuration and custom tests.
 
-Point devOS at your project's directories and language once, then everything else
-(code gen, credential setup and automation utilities) reads from that config.
+Agents install and adapt the canonical CRUD bundle and SQL database companion from
+automation_engine's wiki/Snippets/python with their config, dependencies and offline
+tests. Generated routers consume the installed module and an application-provided
+get_session function. Mount router with app.include_router. Business operations
+and authorization remain in separate modules.
+
+Read [the relational contract and command guide](docs/relational-schema.md) for
+supported PostgreSQL features, paths, wire types, ownership and test fixtures.
+Creation SQL is intended for a new schema. Live database introspection, migrations,
+views, triggers, functions and partitioning are outside this release.
+
+Custom endpoint and use-case test scaffolds are project-owned and explicitly
+skipped until their input fixtures and assertions are implemented. Generated CRUD
+contract tests use isolated consumer client and resource_inputs fixtures and
+exercise mounted behavior. Their pass counts are reported separately.
+
+## Development checks
+
+```text
+uv sync --locked
+pnpm --dir frontend install --frozen-lockfile
+uv run pytest
+uv run mypy src
+pnpm --dir frontend typecheck
+pnpm --dir frontend build
+```
+
+Set DEVOS_TEST_POSTGRES_URL to the explicit local PostgreSQL 18 test instance with
+user devos_test to run database acceptance. Each test creates and drops a unique
+isolated database. CI provisions this service. Consumer fixtures install their own
+support and do not import devOS or the wiki at runtime.
+
+Studio starts with frontend dependencies only. Use dev ui /path/to/devOS/frontend
+--port 3000 to choose another source directory or port. Its production build is a
+static frontend and needs no Python backend or hosted storage.
+
+### Managing credentials
+
+The local creds.json vault is authoritative. Root keys occupy the top level and project objects use an internal project_ prefix. --project selects the current origin repository name independently of storage naming. Named Redis and Prefect stores live in the separate vault config.json. Run dev config creds to select its directory, saved in gitignored .devos/config.json inside devOS.
 
 ```bash
-dev config
+dev set creds TOKEN value
+dev set creds TOKEN replacement --force
+dev set creds TOKEN project-value --project
+dev get creds TOKEN
+dev get creds TOKEN --root
+dev get creds TOKEN --project
+dev list creds
+dev delete TOKEN
+dev delete TOKEN --root
+dev delete TOKEN --project
+dev materialise creds
 ```
 
-This writes `specs/project_config.json` with paths for DAOs, DTOs, routes, tests, and
-contract synchronization outputs.
+Set rejects existing keys, including identical values, unless forced. Get and delete search root and the current project and require explicit scope when both match. Outside repositories they check root only. Get copies to the clipboard. List displays root and all project key names without values.
 
----
+Only materialise writes .env. Set, delete and import modify only the vault. Materialization preserves comments, unrelated assignments and existing values for null entries, and creates a value-free .env.example.
 
-### Build Project Artefacts
+### Credential design decisions
 
-Generate DAOs, DTOs, CRUD routes, and tests from your JSON specification:
+One credential vocabulary replaces separate secrets and credentials workflows. Projects never inherit root values. Explicit project assignment limits exposure and prevents cross-project conflicts. Local JSON removes mandatory Redis or Prefect setup. Remote transfers and materialization are separate operations so importing cannot unexpectedly rewrite a project's environment.
+
+A managed vault location with version history or version control is highly recommended. Suitable choices include Google Drive, OneDrive, an Obsidian Vault with a configured history mechanism, or a private GitHub repository. The user's selected system owns history, retention and recovery. devOS does not initialize Git, commit changes or guarantee recovery. An Obsidian Vault directory alone does not provide version control. History can retain previous confidential values.
+
+### Remote store to vault to environment
+
+Configure targets in the vault config.json using your own connection values.
+
+```json
+{
+  "stores": {
+    "deployment-redis": {
+      "type": "redis",
+      "connection": {"host": "localhost", "port": 6379, "password": "", "db": 0, "ssl": false}
+    },
+    "deployment-prefect": {
+      "type": "prefect",
+      "api_url": "http://localhost:4200/api",
+      "api_key": ""
+    }
+  }
+}
+```
+
+Redis supports url, host, port, username, password, db and ssl. URL takes precedence. Prefect requires its optional package. Connection values stay in vault config, never tracked project setup files.
 
 ```bash
-dev build project_name               # full build — all artefacts for the named project
-dev build dao project_name           # DAOs only
-dev build dto project_name           # DTOs only
-dev build api project_name           # API routes only
-dev build tests api project_name     # API test scaffolding only
-dev build tests services project_name # service test scaffolding only
-dev build context .py,.md .          # aggregate project context file
-dev sync                              # sync classes marked with @contract across Python/TypeScript
+dev import creds deployment-redis
+dev materialise creds
+dev export creds deployment-prefect
+dev export creds deployment-prefect --force
 ```
 
----
+Import adds missing keys, accepts identical values and rejects differences unless forced. Local-only keys survive. Export creates missing bundles and requires force to replace existing bundles with exact project contents. Root credentials never enter transfers. Redis uses devos:projects:<name>. Prefect uses JSON Secret blocks with normalized devos-projects-<name> names and rejects ambiguous project mappings.
 
-### Launch the ORM Builder UI
+[Standalone loading examples](examples/credentials/README.md) provide independent Redis and Prefect LoadingCredsUseCase configuration. Local scaffolding uses .env by default.
 
-Open the visual entity designer (drawORM) in your browser:
-
-```bash
-dev ui path,to,devOS
-```
-
-> If this doesn't work, make sure you have Node.js installed and run `npm install` in
-> the `devOS/frontend` directory.
-
-Design entities, set field types and relationships, then export directly to
-`specs/dao_spec.json`.
-
----
-
-### Managing Credentials
-
-Store credentials as JSON documents in Redis. Project runtimes load only the
-credential bundle for the current Git project. General credentials remain available
-only through the explicit secrets commands.
-
-Configure Redis with either a single URL:
-
-```dotenv
-devos_redis_url=rediss://username:password@host:6379/0
-```
-
-Or separate `devos_redis_host`, `devos_redis_port`, `devos_redis_username`,
-`devos_redis_password`, `devos_redis_db`, and `devos_redis_ssl` variables. The URL
-takes precedence when both forms are present.
-
-Install a project-owned loader and configuration template:
-
-```bash
-dev setup credentials
-```
-
-Push the current `.env`, set one value, or materialize the project credentials:
-
-```bash
-dev set credentials             # refuses to overwrite existing keys
-dev set credentials true        # force an overwrite
-dev set credential API_TOKEN token-value
-dev get credentials
-```
-
-General values use the existing secrets command:
-
-```bash
-dev set secrets secret_key secret_value
-dev get secrets secret_key
-```
-
-The get command copies the value to the clipboard without printing it. Without a
-project name, listing shows global key names, the current project's key names, and
-the registered projects. With a project name, it shows only that project's key names:
-
-```bash
-dev list credentials
-dev list credentials project-name
-```
-
-Export the complete credential estate as one `.env` file per bundle. The destination
-is relative to your home directory and should remain outside OneDrive and Git:
-
-```bash
-dev export credentials vault-export
-```
-
-Copy the whole store into a second Redis database with a lossless JSON mirror.
-Export writes one file per stored key, dropping the `devos:` prefix and turning
-the remaining colons into folders, so `devos:projects:devOS` becomes
-`projects/devOS.json`:
-
-```bash
-dev export store "Protocol/00 PKM/3 Resources/vault"
-```
-
-Both commands talk to whichever database the current `.env` describes, so the
-`devos_redis_*` variables are what select the destination. Point them at the
-second database, then import. Import writes only to Redis, never to `.env`, and
-never replaces a value that is already there: an existing credential is kept and
-reported, everything else lands, and the project registry is unioned.
-
-```bash
-dev import store "Protocol/00 PKM/3 Resources/vault"
-```
-
-The exported tree holds every credential in plaintext, so delete it once the
-import is done.
-
-The one-time legacy migration is intentionally a script rather than a permanent
-command:
-
-```bash
-python scripts/migrate_credentials_vault.py
-```
+Migrate existing Redis and dotenv sources with python scripts/migrate_credentials_vault.py --protocol-root PATH. Migration verifies readback, leaves Redis intact and stops on differing values. Repeat --keep-local PROJECT KEY for explicit local-source choices. Materialize separately.
 
 ---
 
@@ -201,93 +186,13 @@ dev-update -DevOSPath "C:/path/to/devOS" -TargetDir "my-project"
 > **Activate your environment before running `dev-update`** — the script installs
 > directly into whatever `pip` is on your `PATH`.
 
-## Table of Contents
-
-- [TL;DR — devOS in 5 Minutes](#tldr--devos-in-5-minutes)
-- [Philosophy](#philosophy)
-- [Core Components](#core-components)
-- [Installation](#installation)
-- [Key Concepts](#key-concepts)
-- [Architecture](#architecture)
-- [Code Generation](#code-generation)
-- [Software Design](#software-design)
-- [Usage](#usage)
-
----
-
-## Philosophy
-
-The advent of LLMs means there's **no excuse** for not having tests, documentation,
-and high-quality clean code. devOS is built on these principles:
-
-1. **Prototype first, refactor with design** — Write messy code to understand the
-   problem, then use devOS to rewrite it properly
-2. **First version is always throwaway** — Accept that prototypes are learning tools,
-   not production artifacts
-3. **Specifications over implementations** — JSON specifications export to any
-   language and avoid AST parsing errors
-4. **Version-controlled development assets** use the canonical wiki library for
-   complete reusable code bundles
-5. **Local agent workflows** use registered engineering guides and complete
-   reusable bundles
-
-devOS is **not distributed via PyPI**. It is cloned locally and installed as an
-editable `pipx` tool so the `dev` command is available across projects. The cloned
-repository lets you:
-
-- Customize default configs and settings for your team
-- Install reusable wiki bundles through the agent workflow
-- Use it as a Redis-backed credential database client
-- Run local Ralph workflows without cloud dependencies
-
----
-
-## Core Components
-
-### drawORM — Visual ORM Designer
-
-A UI ORM builder powered by
-[React Flow](https://reactflow.dev/docs/guides/custom-nodes/), inspired by
-[drawSQL](https://drawsql.app/).
-
-**Purpose:** Refactoring tool for data models
-
-- Design your domain entities visually
-- Generate DAOs, DTOs, CRUD routes, and tests automatically
-- Syncs specifications bidirectionally (like xstate, but for Clean Architecture)
-
-### drawUML — Specification Builder
-
-A domain-specific visual language on top of JSON for defining:
-
-- Endpoints and schemas
-- Advanced behaviors (on-delete rules, data transformations, pre/post-instantiation
-  hooks)
-- Business logic constraints
-
-**Why JSON specifications?**
-
-- Easier to export to different programming languages
-- Less error-prone than building abstract syntax trees
-- Machine-readable for LLM code generation
-- Type-safe and version-controllable
-
-### Agent workflow
-
-Agents use the canonical wiki Snippets SOP for reusable code bundles. Refresh
-registered project instructions through automation_engine's
-`scripts/sync_project_agents.py`. devOS supplies scaffolding, code generation and
-scoped credential setup for those workflows.
-
----
-
 ## Installation
 
 ### Prerequisites
 
 - **Node.js** v18 or above
 - **Python** 3.12 or above
-- An active **git repository** (devOS extracts repo name, tags, etc.)
+- A Git repository for commands that operate on remotes or releases
 - (Optional) Tooling required by your local `ralph.sh` workflow
 
 ### Install globally on macOS
@@ -350,9 +255,8 @@ command -v dev
 pipx list
 ```
 
-`command -v dev` should resolve to `~/.local/bin/dev`. Run devOS commands inside
-an active Git repository because devOS uses the current repository for project
-configuration.
+`command -v dev` should resolve to `~/.local/bin/dev`. Schema and targeted build
+commands work outside Git. Repository operations use the current checkout.
 
 ### Install globally on Windows
 
@@ -397,28 +301,16 @@ uv tool install --force --python 3.14 --editable "$HOME\protocol\devOS"
 
 ### Configure devOS
 
-1. **Run the setup command:**
+Install frontend dependencies with pnpm --dir frontend install --frozen-lockfile.
+Launch Studio with dev ui. Use dev scaffold inspect and the approved scaffold
+specification for project setup.
+
+Run `dev config creds`, set project values with `dev set creds KEY VALUE --project`, then run `dev materialise creds` inside the repository.
+
+Verify the standalone CLI.
 
 ```bash
-dev setup
-```
-
-This will:
-
-- Install the ORM builder UI (React frontend)
-- Configure environment variables
-- Locate the canonical wiki library for credential setup
-
-2. **Configure credential storage:**
-
-Set the Redis bootstrap variables, then run `dev setup credentials`. Redis becomes
-the credential authority. A local `.env` remains an explicit materialization and
-offline fallback.
-
-3. **Verify installation:**
-
-```bash
-dev version
+dev schema --help
 ```
 
 ### Update or remove devOS
@@ -453,463 +345,6 @@ uv tool uninstall devos
 ```
 
 ---
-
-## Key Concepts
-
-### Specification-Driven Development
-
-devOS assumes you update **DAOs and endpoints via specifications**, freeing you to
-focus on:
-
-- Writing use cases
-- Implementing adapters (services)
-- Creating comprehensive tests
-
-### The Credential Database
-
-Redis stores one JSON document for general credentials and one per Git project.
-Applications load only their own project document at import time through their copied
-`configs.py` bundle. General credentials are available only through the explicit
-secrets commands.
-Redis is authoritative when available. If it cannot be reached, values already loaded
-from a local `.env` remain in place.
-
-Explicit exports preserve arbitrary JSON values under:
-
-```text
-vault-export/
-  general/credentials.json
-  projects/<project-name>/credentials.json
-```
-
-### Reusable bundles
-
-The canonical library is automation_engine's `wiki/Snippets/`, governed by its
-Snippets SOP. Agents adapt complete bundles and run their offline tests in the
-target. Provider configuration and credential assignment remain explicit.
-
-### Configuration Paths
-
-Paths are entered as **comma-separated lists** to remain platform-agnostic.
-
-**home_root configs:**
-
-- Global configs using the user home directory as root
-- Paths start from `~` or `$HOME`
-
-**project_root configs:**
-
-- Project-specific paths starting from the repository root
-- Define directories, filenames, and programming languages for generated code
-
-### ORM Builder UI Guidelines
-
-- Use **array types** to indicate one-to-many relationships
-- AI autocomplete is available in the editor for endpoint definitions
-- Visual design syncs bidirectionally with JSON specifications
-
----
-
-## Architecture
-
-### System Overview
-
-```mermaid
-graph TB
-    subgraph "Visual Design Layer"
-        A[drawORM UI]
-        B[drawUML UI]
-    end
-
-    subgraph "Specification Layer"
-        C[JSON Specifications]
-        D[Domain-Specific Rules]
-    end
-
-    subgraph "Code Generation Layer"
-        E[DAO Generator]
-        F[DTO Generator]
-        G[Route Generator]
-        H[Test Generator]
-        I[LLM Codegen]
-    end
-
-    subgraph "Local Workflow"
-      J[Ralph Scripts]
-      K[Project Instructions]
-      L[Local Task Execution]
-    end
-
-    subgraph "Developer Assets"
-        M[Wiki Snippet Bundles]
-        N[Redis Credential Database]
-        O[Templates]
-    end
-
-    A --> C
-    B --> C
-    C --> D
-    D --> E
-    D --> F
-    D --> G
-    D --> H
-    D --> I
-    E --> J
-    F --> J
-    G --> J
-    H --> J
-    I --> J
-    J --> K
-    K --> L
-    M --> J
-    N --> J
-    O --> E
-    O --> F
-    O --> G
-    O --> H
-```
-
-### Data Flow
-
-```mermaid
-sequenceDiagram
-    participant Dev as Developer
-    participant UI as drawORM/drawUML
-    participant Spec as JSON Specification
-    participant Gen as Code Generator
-    participant Ralph as Ralph Workflow
-    participant Local as Local Task Runtime
-
-    Dev->>UI: Design entities & endpoints
-    UI->>Spec: Generate JSON specification
-    Spec->>Gen: Parse and validate
-    Gen->>Ralph: Create local generation task
-    Ralph->>Local: Execute code generation
-    Local->>Ralph: Apply templates & snippets
-    Gen->>Dev: Produce DAOs, DTOs, routes, tests
-    Dev->>Local: Review generated changes
-```
-
-### Clean Architecture Layers
-
-devOS enforces Clean Architecture principles through code generation:
-
-```
-┌─────────────────────────────────────────┐
-│          Domain Layer                    │
-│  • entities.py (DAOs)                   │
-│  • Business rules & constraints         │
-└─────────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────────┐
-│        Use Cases Layer                   │
-│  • crud_dto.py, custom_dto.py           │
-│  • use_cases.py                         │
-│  • ports.py (interfaces)                │
-└─────────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────────┐
-│      Infrastructure Layer                │
-│  • crud_routes.py, custom_routes.py     │
-│  • adapters.py                          │
-│  • schema.py (external contracts)       │
-└─────────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────────┐
-│          Tests Layer                     │
-│  • unit_tests.py                        │
-│  • integration_tests.py                 │
-└─────────────────────────────────────────┘
-```
-
-**Dependency Rule:** Inner layers never depend on outer layers.
-
----
-
-## Code Generation
-
-### Supported Languages
-
-- **Python** (FastAPI, SQLAlchemy, Pydantic)
-- **TypeScript** (React, Express, type definitions)
-- **More languages** via LLM codegen when not explicitly supported
-
-### Generation Workflow
-
-1. **Design in drawORM/drawUML** — Visually define entities, relationships, and
-   endpoints
-2. **Export JSON specification** — Domain-specific rules encoded as JSON
-3. **Run code generator:**
-
-```bash
-dev build project_name               # Generate all artifacts
-dev build dao project_name           # Generate DAOs only
-dev build dto project_name           # Generate DTOs only
-dev build api project_name           # Generate API routes only
-dev build tests api project_name     # Generate API test scaffolding only
-dev build tests services project_name # Generate service test scaffolding only
-dev sync                              # Translate all classes in @contract files
-```
-
-4. **LLM Integration** — When programming language is not specified, devOS invokes an
-   LLM codegen workflow using `AGENTS.md` for architectural guidance
-
-### Test Generation
-
-- **Service tests:** Code generator searches for files with `@service` marker
-- **API tests:** Generates tests only for endpoints created by devOS code generator
-
-### Extending Generated Code
-
-Generated code is **importable** and **extensible**:
-
-```python
-# Import generated routes
-from generated_endpoints import app
-
-# Extend with custom routes
-@app.route("/custom_endpoint", methods=["POST"])
-def custom_endpoint():
-    return {"message": "Custom logic here"}
-```
-
-### Suggested Project Structure
-
-```
-project/
-├── domain/
-│   └── dao.py                    # Generated entities
-├── use_cases/
-│   ├── crud_dto.py               # Generated CRUD DTOs
-│   ├── custom_dto.py             # Your custom DTOs
-│   ├── use_cases.py              # Your business logic
-│   ├── ports.py                  # Interfaces for adapters
-│   └── utils/                    # Shared utilities
-├── infrastructure/
-│   ├── crud_routes.py            # Generated CRUD routes
-│   ├── custom_routes.py          # Your custom routes
-│   ├── adapters.py               # External service adapters
-│   └── schema.py                 # Third-party contracts
-└── tests/
-    ├── unit_tests.py             # Generated unit tests
-    └── integration_tests.py      # Generated integration tests
-```
-
----
-
----
-
-## Software Design
-
-### React Component Architecture
-
-The frontend is built with React + TypeScript following event-driven patterns
-outlined in `AGENTS.md`.
-
-```mermaid
-classDiagram
-   App <|-- Console
-   Console <|-- UmlDiagram
-   Console <|-- NavbarComponent
-   Console : - edges
-   Console : - nodes
-   Console : + handleCopy()
-   Console : + createTable()
-   Console : + onEventNodesChange()
-   Console : + onEventEdgesChange()
-
-   UmlDiagram : - gridTable
-   UmlDiagram : + viewComment
-   UmlDiagram : + objectComment
-   UmlDiagram : + insertMode
-   UmlDiagram : + findIndex()
-   UmlDiagram : + addRow()
-   UmlDiagram : + deleteRow()
-   UmlDiagram : + handleNavigation()
-   UmlDiagram : + handleObjectClick()
-
-   NavbarComponent : - sideBarView
-   NavbarComponent : + onEventExportJSON()
-   NavbarComponent : + onEventImportJSON()
-   NavbarComponent : + onEventCreateTable()
-```
-
-### Console Design (Container Component)
-
-**View:** The Console component is divided into two sections:
-
-1. **NavbarComponent** — Uses `createTable` and `handleCopy` to modify parent state
-2. **React Flow Grid** — Uses `UmlDiagram` as custom nodes:
-
-```jsx
-const nodeTypes = { umlDiagram: UmlDiagram };
-```
-
-**State:** The node data structure:
-
-```jsx
-{
-  id: `node-${nodes.length + 1}`,
-  type: "umlDiagram",
-  position: { x: 10, y: 10 },
-  data: {
-    objectName: "Object Name",
-    comment: "Object Description",
-    color: getRandomColor(),
-    gridTable: [
-      {
-        visibility: "+",
-        signature: "",
-        type: "",
-        comment: "signature description",
-      },
-    ],
-  },
-}
-```
-
-This data is passed to `UmlDiagram` via the `data` prop and modified through:
-
-- `addRow()` / `deleteRow()` — Manage entity fields
-- `handleObjectClick()` — Select/focus entities
-- `handleNavigation()` — Keyboard navigation within the grid
-
-### Backend Architecture
-
-Follows Clean Architecture principles (see `AGENTS.md`):
-
-```
-domain/ → use_cases/ → infrastructure/
-```
-
-- **domain/entities.py** — Business entities and DAOs
-- **use_cases/** — Business logic, DTOs, and ports
-- **infrastructure/** — Adapters, routes, clients, and external contracts
-
----
-
-## Usage
-
-### Quick Start
-
-1. **Launch the ORM builder:**
-
-```bash
-dev ui path,to,devOS
-```
-
-2. **Design your entities:**
-   - Drag nodes onto the canvas
-   - Define fields with types and relationships
-   - Add constraints and validation rules
-
-3. **Export specification:**
-
-Use the drawORM save/export action in the UI. It writes to `specs/dao_spec.json`.
-
-4. **Generate code:**
-
-```bash
-dev build project_name
-```
-
-5. **Implement use cases:**
-
-Write your business logic in `use_cases/use_cases.py` using the generated DTOs and
-DAOs.
-
-6. **Run tests:**
-
-```bash
-pytest tests/
-```
-
-### Configuration
-
-Edit `specs/project_config.json` to customize:
-
-```json
-{
-  "project_name": "my-project",
-  "home_root": {
-    "snippets": ["protocol", "automation_engine", "wiki", "Snippets"]
-  },
-  "project_root": {
-    "dao_output_config": [
-      { "directory": ["src", "my_app", "domain", "dao.py"], "language": "python" }
-    ],
-    "dto_output_config": [
-      { "directory": ["src", "my_app", "use_cases", "dto.py"], "language": "python" }
-    ],
-    "api_output_config": [
-      {
-        "directory": ["src", "my_app", "infrastructure", "routes.py"],
-        "language": "python"
-      }
-    ],
-    "test_api_output_config": [
-      { "directory": ["tests", "test_routes.py"], "language": "python" }
-    ],
-    "test_services_output_directory": ["tests"],
-    "contract_sync_output_config": [
-      {
-        "source_language": "python",
-        "output_directory": ["src", "typescript_code", "schema"]
-      },
-      {
-        "source_language": "typescript",
-        "output_directory": ["src", "python_code", "schema"]
-      }
-    ]
-  }
-}
-```
-
-Any class inside files containing `@contract` is translated to the opposite language
-using the same filename stem. Example: `types.ts` -> `types.py` in the configured
-destination.
-
----
-
-## Why devOS?
-
-### The Problem
-
-With LLMs, we can generate high-quality code faster than ever. But we still:
-
-- Write throwaway prototypes that never get refactored
-- Lack tests and documentation
-- Rebuild the same patterns across projects
-- Struggle to maintain consistency in large teams
-
-### The Solution
-
-devOS bridges the gap between **prototype** and **production**:
-
-1. **Visual design tools** eliminate manual boilerplate
-2. **JSON specifications** ensure portability and type safety
-3. **Ralph-first local workflows** keep automation under your control
-4. **Complete wiki bundles** carry tested patterns and setup into projects
-5. **LLM integration** handles unsupported languages and edge cases
-
-### When to Use devOS
-
-✅ **Use devOS when:**
-
-- Starting a new project that needs Clean Architecture
-- Refactoring a prototype into production code
-- Standardizing patterns across multiple projects
-- Working on proprietary code that can't use cloud AI services
-- You want generated tests, docs, and scaffolding automatically
-
-❌ **Don't use devOS when:**
-
-- Building a quick throwaway script
-- Project structure is too unique for code generation
-- Team prefers full manual control over every file
-
----
-
 ## Contributing
 
 devOS is designed to be **forked and customized**. To contribute:
@@ -926,16 +361,3 @@ devOS is designed to be **forked and customized**. To contribute:
 MIT License — See [LICENSE](LICENSE) for details.
 
 ---
-
-## Roadmap
-
-- [ ] Support for more programming languages (Go, Rust, Java)
-- [ ] GraphQL schema generation
-- [ ] Integration with more task management tools (Jira, Linear, etc.)
-- [ ] Real-time collaboration on drawORM canvas
-- [ ] Export to OpenAPI/Swagger specifications
-- [ ] Plugin system for custom code generators
-
----
-
-**Built with ❤️ by developers who are tired of rewriting the same code.**

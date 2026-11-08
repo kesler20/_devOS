@@ -1,0 +1,46 @@
+.studio-menu { position: relative; }
+.studio-nav { width: 96%; max-width: 980px; margin: 0 auto !important; }
+.studio-nav nav > * { flex-shrink: 0; }
+.studio-nav nav p { white-space: nowrap; }
+.create-table-btn:disabled { opacity: 0.5; cursor: default; }
+.diagram { width: 580px; }
+.studio-table-row > select { width: 100%; min-width: 0; }
+.studio-column-name { min-width: 0; }
+.studio-column-name input { min-width: 0; }
+.studio-menu-toggle { width: 56px; height: 42px; border: 1px solid #b5c6b7; border-radius: 5px; background: white; color: gray; font-size: 28px; cursor: pointer; }
+.studio-file-menu { position: absolute; top: 48px; left: 0; width: 200px; z-index: 100; background: white; border-radius: 10px; box-shadow: 2px 3px 17px rgb(200, 200, 200); padding: 8px; }
+.studio-file-menu button { display: block; width: 100%; padding: 10px; border: 0; color: #707680; background: white; text-align: left; cursor: pointer; }
+.studio-file-menu button:hover { color: #8d38cd; background: #f5f7fa; }
+.studio-section-tab { display: flex; align-items: center; gap: 8px; color: #cec6bc; border: 0; background: none; font-size: 16px; cursor: pointer; }
+.studio-section-tab svg { color: #d978f4; }
+.studio-section-tab[aria-pressed="true"] { color: #a59d94; }
+.grid-table.studio-rows { display: block; }
+.studio-table-row { position: relative; display: grid; grid-template-columns: 20% 45% 20% 15%; }
+.studio-column-name { position: relative; }
+.studio-column-name input { width: 100%; height: 100%; }
+.studio-key-label { position: absolute; right: 5px; bottom: 2px; font-size: 10px; color: #8d38cd; pointer-events: none; }
+.studio-editor { max-height: 80vh; overflow-y: auto; cursor: default; }
+.studio-fields label { display: block; width: 100%; margin: 12px 0; color: #707680; font-size: 14px; }
+.studio-fields label > input, .studio-fields label > select, .studio-fields label > textarea { display: block; width: 100%; }
+.studio-fields .studio-checkbox { display: flex; align-items: center; gap: 8px; }
+.studio-fields .studio-checkbox input { width: auto; }
+.studio-fields fieldset { width: 100%; padding: 10px; border: 1px solid #c4c8cd; margin: 14px 0; }
+.studio-fields legend { color: #8d38cd; }
+.studio-fields .studio-order-row { display: flex; align-items: center; gap: 6px; padding: 5px 0; }
+.studio-order-row span { flex: 1; }
+.studio-order-row button:disabled { opacity: 0.35; cursor: default; }
+.studio-close-editor { position: absolute; top: 8px; right: 10px; border: 0; background: white; color: #8d38cd; font-size: 22px; cursor: pointer; }
+.studio-editor-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.studio-editor h3 { margin: 12px 0; }
+.studio-error { position: fixed; top: 140px; left: 50%; transform: translateX(-50%); z-index: 200; max-width: 80vw; padding: 12px; background: white; color: #9b2323; border: 1px solid #9b2323; border-radius: 10px; box-shadow: 2px 3px 17px rgb(200, 200, 200); }
+.studio-error button { margin-left: 10px; }
+@media (max-width: 990px) {
+  .studio-nav { overflow-x: auto; }
+  .studio-nav nav { min-width: 900px; }
+}
+
+.studio-table-heading { width: 85%; }
+.studio-table-grip { height: 28px; border-radius: 8px 8px 0 0; cursor: grab; touch-action: none; }
+.studio-table-grip:active { cursor: grabbing; }
+.studio-table-heading input.object-name { width: 100%; border-radius: 0 0 8px 8px; }
+.diagram .table-name { cursor: grab; }

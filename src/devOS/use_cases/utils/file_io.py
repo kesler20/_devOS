@@ -5,7 +5,7 @@ The file api provides a better interface for editing files in python
 import typing as types
 import json
 import os
-from pathlib import Path
+import pathlib as pathlib
 
 
 class File:
@@ -29,16 +29,17 @@ class File:
     ```
     """
 
-    def __init__(self, filename: types.Union[Path, str], *relative_path) -> None:
-        if type(filename) == str:
-            filename = Path(filename)
+    def __init__(
+        self, filename: types.Union[pathlib.Path, str], *relative_path
+    ) -> None:
+        filename = pathlib.Path(filename)
 
         if len(relative_path) > 0:
-            filename = Path(os.path.join(filename, *relative_path))
+            filename = pathlib.Path(os.path.join(filename, *relative_path))
 
-        self.filename = filename.as_posix()  # type: ignore
+        self.filename = filename.as_posix()
 
-    def _ensure_parent_dirs(self) -> None:
+    def __ensure_parent_dirs(self) -> None:
         dir_name = os.path.dirname(self.filename)
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
@@ -104,7 +105,7 @@ File(
         content : str
             The content to be appended to the file.
         """
-        self._ensure_parent_dirs()
+        self.__ensure_parent_dirs()
         with open(self.filename, "a") as file:
             file.write(content + "\n")
 
@@ -117,7 +118,7 @@ File(
         content : str
             The content to be appended to the file.
         """
-        self._ensure_parent_dirs()
+        self.__ensure_parent_dirs()
         with open(self.filename, "a", encoding="utf-8") as file:
             file.write(content + "\n")
 
@@ -196,7 +197,7 @@ File(
         content : str
             The content to be written to the file.
         """
-        self._ensure_parent_dirs()
+        self.__ensure_parent_dirs()
         with open(self.filename, "w", encoding="utf-8", newline="") as file:
             file.write(content)
 
@@ -209,7 +210,7 @@ File(
         content : str
             The content to be written to the file.
         """
-        self._ensure_parent_dirs()
+        self.__ensure_parent_dirs()
         with open(self.filename, "w") as file:
             file.write(content)
 
@@ -303,7 +304,7 @@ File(
         content : dict or list
             The content to be written to the JSON file.
         """
-        self._ensure_parent_dirs()
+        self.__ensure_parent_dirs()
         with open(self.filename, "w", encoding="utf-8") as json_file:
             json_file.write(json.dumps(content, indent=2))
 
@@ -316,7 +317,7 @@ File(
         content : str
             The content to be written as a single line to the file.
         """
-        self._ensure_parent_dirs()
+        self.__ensure_parent_dirs()
         with open(self.filename, "w") as file:
             file.write(f"{content}\n")
 
@@ -329,7 +330,7 @@ File(
         content : list[str]
             A list of strings to be written as lines to the file.
         """
-        self._ensure_parent_dirs()
+        self.__ensure_parent_dirs()
         with open(self.filename, "w") as file:
             file.writelines([f"{line}" for line in content])
 

@@ -1,4 +1,5 @@
-import ReactDOM from "react-dom/client";
+import * as ReactDOM from "react-dom/client";
+import { ReactFlowProvider } from "react-flow-renderer";
 import App from "./App";
 import "./index.css";
 
@@ -9,4 +10,4 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
-root.render(<App />);
+root.render(<ReactFlowProvider><App /></ReactFlowProvider>);

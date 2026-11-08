@@ -1,0 +1,972 @@
+{
+  "$defs": {
+    "CheckConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "check",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SqlIdentifier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expression": {
+          "minLength": 1,
+          "title": "Expression",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "expression"
+      ],
+      "title": "CheckConstraint",
+      "type": "object"
+    },
+    "Column": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/SqlIdentifier"
+        },
+        "type": {
+          "$ref": "#/$defs/SqlType"
+        },
+        "nullable": {
+          "default": true,
+          "title": "Nullable",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default"
+        },
+        "serial": {
+          "default": false,
+          "title": "Serial",
+          "type": "boolean"
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Identity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type"
+      ],
+      "title": "Column",
+      "type": "object"
+    },
+    "DiagramLayout": {
+      "additionalProperties": false,
+      "properties": {
+        "tables": {
+          "items": {
+            "$ref": "#/$defs/TablePosition"
+          },
+          "title": "Tables",
+          "type": "array"
+        },
+        "viewport": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Viewport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "DiagramLayout",
+      "type": "object"
+    },
+    "EnumType": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "namespace_id": {
+          "minLength": 1,
+          "title": "Namespace Id",
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/SqlIdentifier"
+        },
+        "values": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Values",
+          "type": "array"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "id",
+        "namespace_id",
+        "name",
+        "values"
+      ],
+      "title": "EnumType",
+      "type": "object"
+    },
+    "ForeignKey": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "foreign_key",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SqlIdentifier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "column_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Column Ids",
+          "type": "array"
+        },
+        "target_table_id": {
+          "minLength": 1,
+          "title": "Target Table Id",
+          "type": "string"
+        },
+        "target_column_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Target Column Ids",
+          "type": "array"
+        },
+        "on_delete": {
+          "default": "NO ACTION",
+          "enum": [
+            "NO ACTION",
+            "RESTRICT",
+            "CASCADE",
+            "SET NULL",
+            "SET DEFAULT"
+          ],
+          "title": "On Delete",
+          "type": "string"
+        },
+        "on_update": {
+          "default": "NO ACTION",
+          "enum": [
+            "NO ACTION",
+            "RESTRICT",
+            "CASCADE",
+            "SET NULL",
+            "SET DEFAULT"
+          ],
+          "title": "On Update",
+          "type": "string"
+        },
+        "match": {
+          "default": "SIMPLE",
+          "enum": [
+            "SIMPLE",
+            "FULL"
+          ],
+          "title": "Match",
+          "type": "string"
+        },
+        "deferrable": {
+          "default": false,
+          "title": "Deferrable",
+          "type": "boolean"
+        },
+        "initially_deferred": {
+          "default": false,
+          "title": "Initially Deferred",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "column_ids",
+        "target_table_id",
+        "target_column_ids"
+      ],
+      "title": "ForeignKey",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "properties": {
+        "generation": {
+          "default": "by_default",
+          "enum": [
+            "always",
+            "by_default"
+          ],
+          "title": "Generation",
+          "type": "string"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "ge": -9223372036854775808,
+              "le": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        },
+        "increment": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "ge": -9223372036854775808,
+              "le": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Increment"
+        },
+        "min_value": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "ge": -9223372036854775808,
+              "le": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Value"
+        },
+        "max_value": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "ge": -9223372036854775808,
+              "le": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Value"
+        },
+        "cache": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "ge": 1,
+              "le": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache"
+        },
+        "cycle": {
+          "default": false,
+          "title": "Cycle",
+          "type": "boolean"
+        }
+      },
+      "title": "Identity",
+      "type": "object"
+    },
+    "Index": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/SqlIdentifier"
+        },
+        "column_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Column Ids",
+          "type": "array"
+        },
+        "unique": {
+          "default": false,
+          "title": "Unique",
+          "type": "boolean"
+        },
+        "method": {
+          "const": "btree",
+          "default": "btree",
+          "title": "Method",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "column_ids"
+      ],
+      "title": "Index",
+      "type": "object"
+    },
+    "KeyConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "primary_key",
+            "unique"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SqlIdentifier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "column_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Column Ids",
+          "type": "array"
+        },
+        "deferrable": {
+          "default": false,
+          "title": "Deferrable",
+          "type": "boolean"
+        },
+        "initially_deferred": {
+          "default": false,
+          "title": "Initially Deferred",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "column_ids"
+      ],
+      "title": "KeyConstraint",
+      "type": "object"
+    },
+    "Namespace": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/SqlIdentifier"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "Namespace",
+      "type": "object"
+    },
+    "OrmColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "column_id": {
+          "minLength": 1,
+          "title": "Column Id",
+          "type": "string"
+        },
+        "attribute_name": {
+          "title": "Attribute Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "column_id",
+        "attribute_name"
+      ],
+      "title": "OrmColumn",
+      "type": "object"
+    },
+    "OrmConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "tables": {
+          "items": {
+            "$ref": "#/$defs/OrmTable"
+          },
+          "title": "Tables",
+          "type": "array"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/OrmColumn"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/OrmRelationship"
+          },
+          "title": "Relationships",
+          "type": "array"
+        }
+      },
+      "title": "OrmConfiguration",
+      "type": "object"
+    },
+    "OrmRelationship": {
+      "additionalProperties": false,
+      "properties": {
+        "foreign_key_id": {
+          "minLength": 1,
+          "title": "Foreign Key Id",
+          "type": "string"
+        },
+        "attribute_name": {
+          "title": "Attribute Name",
+          "type": "string"
+        },
+        "reverse_attribute_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reverse Attribute Name"
+        },
+        "cascade": {
+          "default": "save-update, merge",
+          "enum": [
+            "save-update, merge",
+            "all",
+            "all, delete-orphan"
+          ],
+          "title": "Cascade",
+          "type": "string"
+        }
+      },
+      "required": [
+        "foreign_key_id",
+        "attribute_name"
+      ],
+      "title": "OrmRelationship",
+      "type": "object"
+    },
+    "OrmTable": {
+      "additionalProperties": false,
+      "properties": {
+        "table_id": {
+          "minLength": 1,
+          "title": "Table Id",
+          "type": "string"
+        },
+        "class_name": {
+          "title": "Class Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table_id",
+        "class_name"
+      ],
+      "title": "OrmTable",
+      "type": "object"
+    },
+    "SqlIdentifier": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 63,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "quoted": {
+          "default": false,
+          "title": "Quoted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SqlIdentifier",
+      "type": "object"
+    },
+    "SqlType": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "smallint",
+            "integer",
+            "bigint",
+            "numeric",
+            "real",
+            "double precision",
+            "boolean",
+            "text",
+            "varchar",
+            "char",
+            "uuid",
+            "date",
+            "time",
+            "timetz",
+            "timestamp",
+            "timestamptz",
+            "interval",
+            "bytea",
+            "json",
+            "jsonb",
+            "enum"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Length"
+        },
+        "precision": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Precision"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": -1000,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale"
+        },
+        "time_precision": {
+          "anyOf": [
+            {
+              "maximum": 6,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Precision"
+        },
+        "enum_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enum Id"
+        },
+        "array_dimensions": {
+          "default": 0,
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Array Dimensions",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SqlType",
+      "type": "object"
+    },
+    "Table": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "namespace_id": {
+          "minLength": 1,
+          "title": "Namespace Id",
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/SqlIdentifier"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "constraints": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "check": "#/$defs/CheckConstraint",
+                "foreign_key": "#/$defs/ForeignKey",
+                "primary_key": "#/$defs/KeyConstraint",
+                "unique": "#/$defs/KeyConstraint"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/KeyConstraint"
+              },
+              {
+                "$ref": "#/$defs/ForeignKey"
+              },
+              {
+                "$ref": "#/$defs/CheckConstraint"
+              }
+            ]
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "indexes": {
+          "items": {
+            "$ref": "#/$defs/Index"
+          },
+          "title": "Indexes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "namespace_id",
+        "name",
+        "columns"
+      ],
+      "title": "Table",
+      "type": "object"
+    },
+    "TablePosition": {
+      "additionalProperties": false,
+      "properties": {
+        "table_id": {
+          "minLength": 1,
+          "title": "Table Id",
+          "type": "string"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        }
+      },
+      "required": [
+        "table_id",
+        "x",
+        "y"
+      ],
+      "title": "TablePosition",
+      "type": "object"
+    },
+    "Viewport": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "default": 0.0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "default": 0.0,
+          "title": "Y",
+          "type": "number"
+        },
+        "zoom": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "title": "Zoom",
+          "type": "number"
+        }
+      },
+      "title": "Viewport",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "namespaces": {
+      "items": {
+        "$ref": "#/$defs/Namespace"
+      },
+      "title": "Namespaces",
+      "type": "array"
+    },
+    "enums": {
+      "items": {
+        "$ref": "#/$defs/EnumType"
+      },
+      "title": "Enums",
+      "type": "array"
+    },
+    "tables": {
+      "items": {
+        "$ref": "#/$defs/Table"
+      },
+      "title": "Tables",
+      "type": "array"
+    },
+    "diagram": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiagramLayout"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "orm": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OrmConfiguration"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "title": "SchemaDocument",
+  "type": "object"
+}

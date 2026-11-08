@@ -1,6 +1,6 @@
 import sys
 
-import devOS.use_cases.use_cases as use_cases
+from devOS.infrastructure import os_adapter
 
 
 class FailingStdout:
@@ -22,7 +22,7 @@ def test_log_message_replaces_unencodable_unicode(monkeypatch) -> None:
     fake_stdout = FailingStdout()
     monkeypatch.setattr(sys, "stdout", fake_stdout)
 
-    interface = use_cases.OSInterface("C:/tmp")
+    interface = os_adapter.OperatingSystemAdapter("C:/tmp")
     interface.log_message("Failed to fetch remote tags: 😱", error=True)
 
     combined_output = "".join(fake_stdout.writes)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from conftest import FakeNoSQLDatabase
+
 import json
 import pathlib
 
@@ -11,20 +13,6 @@ import devOS.infrastructure.adapters as adapters
 import devOS.use_cases.manage_credentials as manage_credentials
 
 
-class FakeNoSQLDatabase:
-    def __init__(self) -> None:
-        self.values: dict[str, adapters.JSONValue] = {}
-
-    def put(self, key: str, value: adapters.JSONValue) -> bool:
-        self.values[key] = json.loads(json.dumps(value))
-        return True
-
-    def get(self, key: str) -> adapters.JSONValue:
-        value = self.values.get(key)
-        return json.loads(json.dumps(value)) if value is not None else None
-
-    def delete(self, key: str) -> bool:
-        return self.values.pop(key, None) is not None
 
 
 def build_project_config(project_name: str) -> entities.ProjectConfigSchema:
@@ -243,15 +231,11 @@ def test_setup_credentials_copies_project_owned_bundle_and_refuses_overwrite(
     ) == config_content
 
 
-def test_cli_mapper_exposes_credential_lifecycle() -> None:
-    import devOS.user_input_map as user_input_map
-
-    assert "credential" in user_input_map.mapper["set"]
-    assert "credentials" in user_input_map.mapper["get"]
-    assert "credentials" in user_input_map.mapper["list"]
-    assert "credential" in user_input_map.mapper["delete"]
-    assert "credentials" in user_input_map.mapper["export"]
-    assert "credentials" in user_input_map.mapper["setup"]
+def test_credential_commands_are_dispatched_before_project_setup():
+    from devOS.credential_cli import handles
+    assert handles(["set", "creds", "KEY", "value"])
+    assert handles(["materialise", "creds"])
+    assert not handles(["build", "dao"])
 
 
 def test_materialization_keeps_keys_the_store_does_not_supply(

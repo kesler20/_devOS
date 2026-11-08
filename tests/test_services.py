@@ -1,6 +1,6 @@
 import pytest
 from devOS.use_cases.manage_git_repo import ManageGitRepositoryUseCase
-from devOS.use_cases.use_cases import OSInterface
+from devOS.infrastructure.os_adapter import OperatingSystemAdapter
 
 
 class TestManageGitRepositoryUseCase:
@@ -9,7 +9,7 @@ class TestManageGitRepositoryUseCase:
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup ManageGitRepositoryUseCase instance before each test"""
-        self.instance = ManageGitRepositoryUseCase()
+        self.instance = ManageGitRepositoryUseCase(OperatingSystemAdapter("."))
         yield
         self.instance = None
 
@@ -50,7 +50,7 @@ class TestOSInterface:
     @pytest.fixture(autouse=True)
     def setup_method(self):
         """Setup OSInterface instance before each test"""
-        self.instance = OSInterface()
+        self.instance = OperatingSystemAdapter(".")
         yield
         self.instance = None
 

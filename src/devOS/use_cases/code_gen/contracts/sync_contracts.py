@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import ast
 import os
 import re
@@ -34,6 +35,7 @@ class SyncContractsUseCase:
 
     def execute(self, project_name: str | None = None) -> None:
         """Scan and sync all `@contract` files."""
+        logging.info("Starting execute")
         contract_files = self._search_for_contract_files()
         contract_configs = (
             self.project_structure.project_root.contract_sync_output_config
@@ -44,6 +46,7 @@ class SyncContractsUseCase:
                 "No contract_sync_output_config found in project config. "
                 "Skipping contract sync."
             )
+            logging.info("Completed execute")
             return
 
         for contract_file in contract_files:
@@ -80,6 +83,7 @@ class SyncContractsUseCase:
                     os.path.join(*destination_parts),
                 )
                 file_io.File(*destination_parts).write_as_utf8(translated_code)
+        logging.info("Completed execute")
 
     def _search_for_contract_files(self) -> list[str]:
         contract_files: list[str] = []

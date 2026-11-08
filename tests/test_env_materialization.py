@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from conftest import FakeNoSQLDatabase
+
 import json
 import pathlib
 
@@ -9,20 +11,6 @@ import devOS.infrastructure.adapters as adapters
 import devOS.use_cases.manage_credentials as manage_credentials
 
 
-class FakeNoSQLDatabase:
-    def __init__(self) -> None:
-        self.values: dict[str, adapters.JSONValue] = {}
-
-    def put(self, key: str, value: adapters.JSONValue) -> bool:
-        self.values[key] = json.loads(json.dumps(value))
-        return True
-
-    def get(self, key: str) -> adapters.JSONValue:
-        value = self.values.get(key)
-        return json.loads(json.dumps(value)) if value is not None else None
-
-    def delete(self, key: str) -> bool:
-        return self.values.pop(key, None) is not None
 
 
 def build_use_case(

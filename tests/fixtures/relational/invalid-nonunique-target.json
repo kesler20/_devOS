@@ -1,0 +1,233 @@
+{
+  "diagnostic": "not a non-deferrable unique",
+  "document": {
+    "version": 1,
+    "namespaces": [
+      {
+        "id": "ns",
+        "name": {
+          "name": "App Schema",
+          "quoted": true
+        }
+      }
+    ],
+    "enums": [
+      {
+        "id": "state",
+        "namespace_id": "ns",
+        "name": {
+          "name": "state"
+        },
+        "values": [
+          "draft",
+          "active"
+        ]
+      }
+    ],
+    "tables": [
+      {
+        "id": "parent",
+        "namespace_id": "ns",
+        "name": {
+          "name": "Parent",
+          "quoted": true
+        },
+        "description": "Tenant-owned parent",
+        "columns": [
+          {
+            "id": "tenant",
+            "name": {
+              "name": "tenant"
+            },
+            "type": {
+              "name": "uuid"
+            },
+            "nullable": false
+          },
+          {
+            "id": "parent_id",
+            "name": {
+              "name": "id"
+            },
+            "type": {
+              "name": "bigint"
+            },
+            "nullable": false,
+            "identity": {
+              "generation": "always"
+            }
+          },
+          {
+            "id": "state_column",
+            "name": {
+              "name": "state"
+            },
+            "type": {
+              "name": "enum",
+              "enum_id": "state"
+            },
+            "nullable": false,
+            "default": "'draft'"
+          },
+          {
+            "id": "amount",
+            "name": {
+              "name": "amount"
+            },
+            "type": {
+              "name": "numeric",
+              "precision": 20,
+              "scale": 4
+            }
+          },
+          {
+            "id": "labels",
+            "name": {
+              "name": "labels"
+            },
+            "type": {
+              "name": "varchar",
+              "length": 60,
+              "array_dimensions": 1
+            }
+          },
+          {
+            "id": "created",
+            "name": {
+              "name": "created"
+            },
+            "type": {
+              "name": "timestamptz",
+              "time_precision": 3
+            },
+            "default": "CURRENT_TIMESTAMP"
+          }
+        ],
+        "constraints": [
+          {
+            "id": "parent_pk",
+            "kind": "primary_key",
+            "column_ids": [
+              "tenant",
+              "parent_id"
+            ]
+          },
+          {
+            "id": "amount_check",
+            "kind": "check",
+            "expression": "amount >= 0"
+          }
+        ],
+        "indexes": [
+          {
+            "id": "state_idx",
+            "name": {
+              "name": "parent_state_idx"
+            },
+            "column_ids": [
+              "state_column"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "child",
+        "namespace_id": "ns",
+        "name": {
+          "name": "child"
+        },
+        "columns": [
+          {
+            "id": "child_tenant",
+            "name": {
+              "name": "tenant"
+            },
+            "type": {
+              "name": "uuid"
+            },
+            "nullable": false
+          },
+          {
+            "id": "child_parent",
+            "name": {
+              "name": "parent_id"
+            },
+            "type": {
+              "name": "bigint"
+            },
+            "nullable": false
+          },
+          {
+            "id": "child_id",
+            "name": {
+              "name": "id"
+            },
+            "type": {
+              "name": "uuid"
+            },
+            "nullable": false
+          },
+          {
+            "id": "payload",
+            "name": {
+              "name": "payload"
+            },
+            "type": {
+              "name": "text"
+            }
+          }
+        ],
+        "constraints": [
+          {
+            "id": "child_pk",
+            "kind": "primary_key",
+            "column_ids": [
+              "child_id"
+            ]
+          },
+          {
+            "id": "child_fk",
+            "kind": "foreign_key",
+            "column_ids": [
+              "child_tenant",
+              "child_parent"
+            ],
+            "target_table_id": "parent",
+            "target_column_ids": [
+              "tenant",
+              "amount"
+            ],
+            "on_delete": "CASCADE",
+            "deferrable": true,
+            "initially_deferred": true
+          }
+        ]
+      }
+    ],
+    "diagram": {
+      "tables": [
+        {
+          "table_id": "parent",
+          "x": 20.0,
+          "y": 40.0,
+          "color": "#aa5df2"
+        }
+      ]
+    },
+    "orm": {
+      "tables": [
+        {
+          "table_id": "parent",
+          "class_name": "ParentDAO"
+        }
+      ],
+      "relationships": [
+        {
+          "foreign_key_id": "child_fk",
+          "attribute_name": "parent",
+          "reverse_attribute_name": "children"
+        }
+      ]
+    }
+  }
+}

@@ -11,8 +11,8 @@ UI shells and feature code are outside this workflow.
 | --- | --- |
 | `dev scaffold inspect <project-path>` | Read-only file fingerprints, missing setup, staged paths, environment key names and configured local bundle comparison |
 | `dev scaffold apply <spec-path>` | Complete approved scaffold, GitHub metadata and secrets, registration, validation and exact-path staging |
-| `dev scaffold credentials apply <spec-path>` | Import and verify both selected stores, then prepare config, loader, bootstrap `.env`, example and ignores |
-| `dev scaffold secrets apply <spec-path>` | Upload the selected CI bootstrap and project identity to an existing repository and verify secret names |
+| `dev scaffold credentials apply <spec-path>` | Import and verify the local JSON vault, then prepare local dotenv config, materialized `.env`, example and ignores |
+| `dev scaffold secrets apply <spec-path>` | Upload assigned project values or explicitly selected CI bootstrap to an existing repository and verify secret names |
 | `dev scaffold schema` | Current typed JSON input schema |
 
 Install this local checkout with `uv sync --locked`. Use `uv run dev scaffold ...`
@@ -35,10 +35,7 @@ and agreement. Unknown fields are rejected without echoing their input values.
   "description": "Inform an agreed product decision.",
   "stack": "python",
   "data_project": true,
-  "local_store": {
-    "bootstrap": {"env_file": "C:/Users/Kesler/protocol/devOS/.env"},
-    "resolutions": {}
-  },
+  "credential_resolutions": {},
   "ci_store": {
     "bootstrap": {"secret_keys": {"devos_redis_url": "CI_REDIS_URL"}},
     "resolutions": {}
@@ -66,10 +63,9 @@ has no startup command.
 | `project_path` | Optional existing path within `protocol_root`, otherwise root plus project name |
 | `stack` | `python`, `react` or `fullstack` |
 | `python_package`, `python_version`, `config_path` | Actual package identifier, supported Python version and relative settings directory |
-| `config_content` | Reviewed existing config integration, with a module-scope credential-loader call before typed settings construction |
+| `config_content` | Reviewed existing config integration, with module-scope `dotenv.load_dotenv(interpolate=False)` before typed settings construction |
 | `package_manager`, `frontend_path` | `uv`, `pip`, `npm` or `pnpm`, plus the fullstack frontend path |
 | `ci_runner` | Default `ubuntu-latest`, or an agreed `self-hosted` runner for local service access |
-| `secret_source_env_file` | Optional bootstrap file for the general secret store, otherwise this devOS checkout's `.env` |
 | `agent_guides`, `automation_engine_root` | Selected canonical guide names and optional registry/tool checkout |
 | `files` | Reviewed relative-path/content changes for imports, Docker, integration and custom CI/CD workflows |
 | `expected_files` | Inspection fingerprints of existing affected files, including `.env` |
@@ -95,32 +91,9 @@ compiles Python config, runs existing tests and uses available React check scrip
 It maps CI bootstrap secret names to lowercase devOS settings only for Python jobs.
 Add CD and job-specific dependency installation through approved workflow changes.
 
-## Credential contract
+## Credential setup
 
-Select local and CI connection sources separately. `bootstrap.env_file` reads only
-canonical `devos_redis_*` variables. `bootstrap.secret_keys` maps those variable names
-to names in the general secret store. Retrieval uses the same clipboard operation
-as `dev get secrets`, without exposing values in arguments or output.
-
-Before any `.env` rewrite, read all non-bootstrap assignments literally, including
-empty strings and `${...}` text. Compare both selected project bundles before
-writing either one. Missing keys are imported, identical values are retained, and
-every differing key needs `resolutions` of `local` or `stored` in its store selection.
-The same store cannot have incompatible choices. Existing unmentioned keys remain.
-
-Import through the existing credential manager and verify the complete resulting
-bundle and registry membership in both stores. Failed verification leaves the
-original `.env` intact, although a store may have accepted partial mutations.
-Successful imports precede an atomic bootstrap-only environment rewrite. The
-example contains names without values. Ignore rules exclude `.env` and backups.
-A tracked `.env` requires separate removal from the index before setup.
-
-Actions receives the selected CI connection and project identity as uppercase
-`DEVOS_*` secrets. Values are encrypted with PyNaCl sealed boxes using the repository
-public key, following [GitHub's encryption procedure](https://docs.github.com/en/rest/guides/encrypting-secrets-for-the-rest-api).
-Verification checks uploaded names because GitHub does not reveal stored values.
-Hosted runners reject loopback Redis endpoints. Browser code must never receive
-Redis connection settings.
+The configured JSON vault is the local authority. credential_resolutions selects local or stored values when .env assignments differ. Verify import before materializing .env. ci_store is optional and explicitly enables Redis bootstrap publication. Without it, CI receives the assigned project bundle. Remote loaders are optional. Local execution reads the materialized environment.
 
 ## Repository and failure contract
 
@@ -153,9 +126,8 @@ mutations blindly, rewrite `.env` before verified imports or stage unrelated fil
 credential management with project-file, Git and dedicated GitHub REST adapters.
 CLI dispatch precedes eager legacy Git and credential initialisation.
 
-Run `uv run python -m pytest` for the devOS suite. The default test import path
-uses the sibling automation_engine checkout's `wiki/Snippets/python`. When working
-with another checkout, set PYTHONPATH to that checkout's `wiki/Snippets/python`.
+Run `uv run python -m pytest` for the devOS suite. Tests use the isolated canonical consumer bundle under
+`tests/fixtures/consumer_support/python`.
 Scaffold acceptance tests use fake Redis
 stores, mocked GitHub responses and temporary Git repositories, including failure
-recovery, unchanged canonical loader, literal imports and unrelated staged changes.
+recovery, dotenv loading, literal imports and unrelated staged changes.

@@ -1,0 +1,783 @@
+{
+  "version": 1,
+  "namespaces": [
+    {
+      "id": "ns",
+      "name": {
+        "name": "App Schema",
+        "quoted": true
+      },
+      "description": null
+    }
+  ],
+  "enums": [
+    {
+      "id": "state",
+      "namespace_id": "ns",
+      "name": {
+        "name": "state",
+        "quoted": false
+      },
+      "values": [
+        "draft",
+        "active"
+      ],
+      "description": null
+    }
+  ],
+  "tables": [
+    {
+      "id": "parent",
+      "namespace_id": "ns",
+      "name": {
+        "name": "Parent",
+        "quoted": true
+      },
+      "description": "Tenant-owned parent",
+      "columns": [
+        {
+          "id": "tenant",
+          "name": {
+            "name": "tenant",
+            "quoted": false
+          },
+          "type": {
+            "name": "uuid",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "parent_id",
+          "name": {
+            "name": "id",
+            "quoted": false
+          },
+          "type": {
+            "name": "bigint",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": {
+            "generation": "always",
+            "start": null,
+            "increment": null,
+            "min_value": null,
+            "max_value": null,
+            "cache": null,
+            "cycle": false
+          }
+        },
+        {
+          "id": "state_column",
+          "name": {
+            "name": "state",
+            "quoted": false
+          },
+          "type": {
+            "name": "enum",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": "state",
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": "'draft'",
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "amount",
+          "name": {
+            "name": "amount",
+            "quoted": false
+          },
+          "type": {
+            "name": "numeric",
+            "length": null,
+            "precision": 20,
+            "scale": 4,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "labels",
+          "name": {
+            "name": "labels",
+            "quoted": false
+          },
+          "type": {
+            "name": "varchar",
+            "length": 60,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 1
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "created",
+          "name": {
+            "name": "created",
+            "quoted": false
+          },
+          "type": {
+            "name": "timestamptz",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": 3,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": "CURRENT_TIMESTAMP",
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_0",
+          "name": {
+            "name": "type_0",
+            "quoted": false
+          },
+          "type": {
+            "name": "smallint",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_1",
+          "name": {
+            "name": "type_1",
+            "quoted": false
+          },
+          "type": {
+            "name": "integer",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_2",
+          "name": {
+            "name": "type_2",
+            "quoted": false
+          },
+          "type": {
+            "name": "bigint",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_3",
+          "name": {
+            "name": "type_3",
+            "quoted": false
+          },
+          "type": {
+            "name": "numeric",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_4",
+          "name": {
+            "name": "type_4",
+            "quoted": false
+          },
+          "type": {
+            "name": "real",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_5",
+          "name": {
+            "name": "type_5",
+            "quoted": false
+          },
+          "type": {
+            "name": "double precision",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_6",
+          "name": {
+            "name": "type_6",
+            "quoted": false
+          },
+          "type": {
+            "name": "boolean",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_7",
+          "name": {
+            "name": "type_7",
+            "quoted": false
+          },
+          "type": {
+            "name": "text",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_8",
+          "name": {
+            "name": "type_8",
+            "quoted": false
+          },
+          "type": {
+            "name": "varchar",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_9",
+          "name": {
+            "name": "type_9",
+            "quoted": false
+          },
+          "type": {
+            "name": "char",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_10",
+          "name": {
+            "name": "type_10",
+            "quoted": false
+          },
+          "type": {
+            "name": "uuid",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_11",
+          "name": {
+            "name": "type_11",
+            "quoted": false
+          },
+          "type": {
+            "name": "date",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_12",
+          "name": {
+            "name": "type_12",
+            "quoted": false
+          },
+          "type": {
+            "name": "time",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_13",
+          "name": {
+            "name": "type_13",
+            "quoted": false
+          },
+          "type": {
+            "name": "timetz",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_14",
+          "name": {
+            "name": "type_14",
+            "quoted": false
+          },
+          "type": {
+            "name": "timestamp",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_15",
+          "name": {
+            "name": "type_15",
+            "quoted": false
+          },
+          "type": {
+            "name": "timestamptz",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_16",
+          "name": {
+            "name": "type_16",
+            "quoted": false
+          },
+          "type": {
+            "name": "interval",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_17",
+          "name": {
+            "name": "type_17",
+            "quoted": false
+          },
+          "type": {
+            "name": "bytea",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_18",
+          "name": {
+            "name": "type_18",
+            "quoted": false
+          },
+          "type": {
+            "name": "json",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "type_19",
+          "name": {
+            "name": "type_19",
+            "quoted": false
+          },
+          "type": {
+            "name": "jsonb",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        }
+      ],
+      "constraints": [
+        {
+          "id": "parent_pk",
+          "kind": "primary_key",
+          "name": null,
+          "column_ids": [
+            "tenant",
+            "parent_id"
+          ],
+          "deferrable": false,
+          "initially_deferred": false
+        },
+        {
+          "id": "amount_check",
+          "kind": "check",
+          "name": null,
+          "expression": "amount >= 0"
+        }
+      ],
+      "indexes": [
+        {
+          "id": "state_idx",
+          "name": {
+            "name": "parent_state_idx",
+            "quoted": false
+          },
+          "column_ids": [
+            "state_column"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "id": "child",
+      "namespace_id": "ns",
+      "name": {
+        "name": "child",
+        "quoted": false
+      },
+      "description": null,
+      "columns": [
+        {
+          "id": "child_tenant",
+          "name": {
+            "name": "tenant",
+            "quoted": false
+          },
+          "type": {
+            "name": "uuid",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "child_parent",
+          "name": {
+            "name": "parent_id",
+            "quoted": false
+          },
+          "type": {
+            "name": "bigint",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "child_id",
+          "name": {
+            "name": "id",
+            "quoted": false
+          },
+          "type": {
+            "name": "uuid",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": false,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        },
+        {
+          "id": "payload",
+          "name": {
+            "name": "payload",
+            "quoted": false
+          },
+          "type": {
+            "name": "text",
+            "length": null,
+            "precision": null,
+            "scale": null,
+            "time_precision": null,
+            "enum_id": null,
+            "array_dimensions": 0
+          },
+          "nullable": true,
+          "description": null,
+          "default": null,
+          "serial": false,
+          "identity": null
+        }
+      ],
+      "constraints": [
+        {
+          "id": "child_pk",
+          "kind": "primary_key",
+          "name": null,
+          "column_ids": [
+            "child_id"
+          ],
+          "deferrable": false,
+          "initially_deferred": false
+        },
+        {
+          "id": "child_fk",
+          "kind": "foreign_key",
+          "name": null,
+          "column_ids": [
+            "child_tenant",
+            "child_parent"
+          ],
+          "target_table_id": "parent",
+          "target_column_ids": [
+            "tenant",
+            "parent_id"
+          ],
+          "on_delete": "CASCADE",
+          "on_update": "NO ACTION",
+          "match": "SIMPLE",
+          "deferrable": true,
+          "initially_deferred": true
+        }
+      ],
+      "indexes": []
+    }
+  ],
+  "diagram": {
+    "tables": [
+      {
+        "table_id": "parent",
+        "x": 20.0,
+        "y": 40.0,
+        "color": "#aa5df2"
+      }
+    ],
+    "viewport": null
+  },
+  "orm": {
+    "tables": [
+      {
+        "table_id": "parent",
+        "class_name": "ParentDAO"
+      }
+    ],
+    "columns": [],
+    "relationships": [
+      {
+        "foreign_key_id": "child_fk",
+        "attribute_name": "parent",
+        "reverse_attribute_name": "children",
+        "cascade": "save-update, merge"
+      }
+    ]
+  }
+}

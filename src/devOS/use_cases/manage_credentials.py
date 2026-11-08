@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 
 import json
 import pathlib
@@ -6,10 +7,9 @@ import re
 import shutil
 import typing
 import dotenv
-import pyperclip  # type: ignore
+import pyperclip
 import devOS.domain.entities as entities
-from devOS.infrastructure.adapters import RedisNoSQLAdapter
-
+from devOS.use_cases import credential_ports
 
 GENERAL_CREDENTIALS_KEY = "devos:general"
 PROJECT_CREDENTIALS_KEY_PREFIX = "devos:projects:"
@@ -20,24 +20,31 @@ STORE_KEY_PATTERN = "devos:*"
 DOCUMENT_FILE_SUFFIX = ".json"
 INVALID_PATH_CHARACTERS = frozenset('<>:"/\\|?*')
 
-CONFIG_SNIPPET_FILE_NAMES = ("configs.py", "credentials.py")
+CONFIG_SNIPPET_FILE_NAMES = ("configs.py", "credentials.py", "prefect_vault_adapter.py")
 
 
-def configuration_bundle_support(
+def get_configuration_bundle_support(
     source_directory: pathlib.Path, config_import: str
 ) -> dict[str, str]:
     """Render the companion tests and setup files for an installed config package."""
     support = {
-        "docs/snippets/config/" + name: (source_directory / name).read_text(encoding="utf-8")
-        for name in ("README.md", "requirements.txt", "requirements-test.txt", ".env.example")
+        "docs/snippets/config/"
+        + name: (source_directory / name).read_text(encoding="utf-8")
+        for name in (
+            "README.md",
+            "requirements.txt",
+            "requirements-test.txt",
+            ".env.example",
+        )
     }
     for test in sorted((source_directory / "tests").glob("test_*.py")):
-        support["tests/snippets/config/" + test.name] = test.read_text(encoding="utf-8").replace(
-            "from config import credentials", f"from {config_import} import credentials"
-        )
+        support["tests/snippets/config/" + test.name] = test.read_text(
+            encoding="utf-8"
+        ).replace("from config import ", f"from {config_import} import ")
     if not any(name.startswith("tests/") for name in support):
         raise ValueError("The configuration bundle must include offline tests.")
     return support
+
 
 # Matches one environment assignment. The prefix captures everything up to
 # and including the equals sign and any padding, so indentation, "export ",
@@ -47,7 +54,7 @@ ASSIGNMENT_PATTERN = re.compile(
 )
 
 
-def document_relative_path(storage_key: str) -> pathlib.Path:
+def get_document_relative_path(storage_key: str) -> pathlib.Path:
     """Translate a storage key into its path inside an exported store.
 
     The ``devos:`` prefix is dropped and every remaining segment becomes a
@@ -69,14 +76,16 @@ def document_relative_path(storage_key: str) -> pathlib.Path:
             character in INVALID_PATH_CHARACTERS or ord(character) < 32
             for character in segment
         ):
-            raise ValueError(f"Storage key '{storage_key}' cannot be written as a path.")
+            raise ValueError(
+                f"Storage key '{storage_key}' cannot be written as a path."
+            )
 
     # The last segment is joined by hand rather than through with_suffix, which
     # would treat a dot inside a key name as an extension and truncate it.
     return pathlib.Path(*segments[:-1]) / f"{segments[-1]}{DOCUMENT_FILE_SUFFIX}"
 
 
-def storage_key_from_document_path(relative_path: pathlib.Path) -> str:
+def get_storage_key_from_document_path(relative_path: pathlib.Path) -> str:
     """Translate a path inside an exported store back into its storage key."""
     segments = list(relative_path.parts)
     segments[-1] = segments[-1][: -len(DOCUMENT_FILE_SUFFIX)]
@@ -98,7 +107,7 @@ class ManageCredentialsUseCase:
 
     def __init__(
         self,
-        database: RedisNoSQLAdapter | None,
+        database: credential_ports.CredentialDatabasePort | None,
         project_name: str,
         project_root: pathlib.Path,
     ) -> None:
@@ -107,7 +116,9 @@ class ManageCredentialsUseCase:
         self.__project_root = pathlib.Path(project_root)
 
     @property
-    def __credential_database(self) -> RedisNoSQLAdapter:
+    def __credential_database(
+        self,
+    ) -> credential_ports.CredentialDatabasePort:
         # Copying the configuration bundle needs no store, so the database is
         # only demanded by the operations that actually read or write it.
         if self.__database is None:
@@ -170,9 +181,11 @@ class ManageCredentialsUseCase:
         previous file is copied to ``.devos_backup/.env`` first.
         """
 
+        logging.info("Starting get_credentials")
         self.__write_environment_file(
             self.__load_bundle(self.__project_key()).dotenv_values()
         )
+        logging.info("Completed get_credentials")
 
     def __write_environment_file(self, rendered_values: dict[str, str]) -> None:
         """Apply rendered values to ``.env`` without disturbing anything else."""
@@ -239,19 +252,24 @@ class ManageCredentialsUseCase:
             local ``.env`` cannot silently replace a rotated stored value.
         """
 
+        logging.info("Starting set_credentials")
         environment_path = self.__project_root / ".env"
         if not environment_path.is_file():
+            logging.warning("Failed set_credentials")
             raise FileNotFoundError(f"No .env file was found at {environment_path}.")
 
         incoming_values: dict[str, entities.JSONValue] = {
             key: value
-            for key, value in dotenv.dotenv_values(environment_path).items()
+            for key, value in dotenv.dotenv_values(
+                environment_path, interpolate=False
+            ).items()
             if value is not None and not entities.is_bootstrap_variable(key)
         }
 
         project_bundle = self.__load_bundle(self.__project_key())
         conflicting_keys = sorted(set(project_bundle.keys()) & set(incoming_values))
         if conflicting_keys and "--force" not in flags:
+            logging.warning("Failed set_credentials")
             raise ValueError(
                 f"{len(conflicting_keys)} credentials already exist for "
                 f"'{self.__project_name}': {', '.join(conflicting_keys)}. "
@@ -265,19 +283,27 @@ class ManageCredentialsUseCase:
             f"Stored {len(incoming_values)} credentials for '{self.__project_name}', "
             f"overwriting {len(conflicting_keys)}"
         )
+        logging.info("Completed set_credentials")
 
     def store_general_credentials(self, values: dict[str, entities.JSONValue]) -> None:
         """Merge values into the general bundle."""
+        logging.info("Starting store_general_credentials")
         general_bundle = self.__load_bundle(GENERAL_CREDENTIALS_KEY)
         general_bundle.merge(values)
         self.__store_bundle(GENERAL_CREDENTIALS_KEY, general_bundle)
+        logging.info("Completed store_general_credentials")
 
     def compare_project_credentials(
         self, values: dict[str, entities.JSONValue]
     ) -> dict[str, list[str]]:
         """Compare incoming values without exposing them or changing the store."""
+        logging.info("Starting compare_project_credentials")
         bundle = self.__load_bundle(self.__project_key())
-        comparison: dict[str, list[str]] = {"missing": [], "identical": [], "conflicting": []}
+        comparison: dict[str, list[str]] = {
+            "missing": [],
+            "identical": [],
+            "conflicting": [],
+        }
         for key, value in sorted(values.items()):
             entities.CredentialBundle.validate_key(key)
             if key not in bundle.keys():
@@ -286,41 +312,61 @@ class ManageCredentialsUseCase:
                 comparison["identical"].append(key)
             else:
                 comparison["conflicting"].append(key)
+        logging.info("Completed compare_project_credentials")
         return comparison
 
     def import_project_credentials(
         self, values: dict[str, entities.JSONValue], resolutions: dict[str, str]
     ) -> None:
         """Merge agreed values and verify both the bundle and project registry."""
+        logging.info("Starting import_project_credentials")
         bundle = self.__load_bundle(self.__project_key())
         for key, value in values.items():
             entities.CredentialBundle.validate_key(key)
             if key in bundle.keys() and bundle.get(key) != value:
                 choice = resolutions.get(key)
                 if choice not in {"local", "stored"}:
+                    logging.warning("Failed import_project_credentials")
                     raise ValueError(f"Choose local or stored for credential key {key}")
         incoming = {
-            key: value for key, value in values.items()
-            if key not in bundle.keys() or bundle.get(key) == value or resolutions.get(key) == "local"
+            key: value
+            for key, value in values.items()
+            if key not in bundle.keys()
+            or bundle.get(key) == value
+            or resolutions.get(key) == "local"
         }
-        expected = bundle.combine(entities.CredentialBundle.from_json_value(incoming, self.__project_key()))
-        if expected.values() != bundle.values() or self.__credential_database.get(self.__project_key()) is None:
+        expected = bundle.combine(
+            entities.CredentialBundle.from_json_value(incoming, self.__project_key())
+        )
+        if (
+            expected.values() != bundle.values()
+            or self.__credential_database.get(self.__project_key()) is None
+        ):
             self.__store_bundle(self.__project_key(), expected)
         if self.__project_name not in self.__load_registry().names():
             self.__register_project(self.__project_name)
         if self.__load_bundle(self.__project_key()).values() != expected.values():
-            raise RuntimeError("Credential bundle readback did not match the imported values")
+            logging.warning("Failed import_project_credentials")
+            raise RuntimeError(
+                "Credential bundle readback did not match the imported values"
+            )
         if self.__project_name not in self.__load_registry().names():
-            raise RuntimeError("Credential project registry readback did not include the project")
+            logging.warning("Failed import_project_credentials")
+            raise RuntimeError(
+                "Credential project registry readback did not include the project"
+            )
+        logging.info("Completed import_project_credentials")
 
     def store_project_credentials(
         self, project_name: str, values: dict[str, entities.JSONValue]
     ) -> None:
         """Merge values into one project's bundle and register the project."""
+        logging.info("Starting store_project_credentials")
         project_bundle = self.__load_bundle(self.__project_key(project_name))
         project_bundle.merge(values)
         self.__store_bundle(self.__project_key(project_name), project_bundle)
         self.__register_project(project_name)
+        logging.info("Completed store_project_credentials")
 
     # ================================= #
     #                                   #
@@ -340,6 +386,7 @@ class ManageCredentialsUseCase:
 
     def set_credential(self, key: str, value: str) -> None:
         """Store one credential in the project bundle and in ``.env``."""
+        logging.info("Starting set_credential")
         self.__set_value(self.__project_key(), key, value)
         self.__register_project(self.__project_name)
         # Written straight to .env too, so the value is usable in this project
@@ -348,32 +395,43 @@ class ManageCredentialsUseCase:
         rendered.merge({key: value})
         self.__write_environment_file(rendered.dotenv_values())
         print(f"Stored {key} for project '{self.__project_name}'")
+        logging.info("Completed set_credential")
 
     def delete_credential(self, key: str) -> None:
         """Remove one credential from the project bundle."""
+        logging.info("Starting delete_credential")
         self.__delete_value(self.__project_key(), key)
         print(f"Deleted {key} from project '{self.__project_name}'")
+        logging.info("Completed delete_credential")
 
     def set_global_secret(self, key: str, value: str) -> None:
         """Store one credential in the general bundle."""
+        logging.info("Starting set_global_secret")
         self.__set_value(GENERAL_CREDENTIALS_KEY, key, value)
         print(f"Stored {key} in the general credentials")
+        logging.info("Completed set_global_secret")
 
     def get_global_secret(self, key: str) -> None:
         """Copy one general credential to the clipboard without printing it."""
+        logging.info("Starting get_global_secret")
         value = self.__load_bundle(GENERAL_CREDENTIALS_KEY).get(key)
         if value is None:
+            logging.warning("Failed get_global_secret")
             raise KeyError(f"General secret key {key} is absent")
         pyperclip.copy(value if isinstance(value, str) else json.dumps(value))
         print(f"Copied {key} to the clipboard")
+        logging.info("Completed get_global_secret")
 
     def delete_global_secret(self, key: str) -> None:
         """Remove one credential from the general bundle."""
+        logging.info("Starting delete_global_secret")
         self.__delete_value(GENERAL_CREDENTIALS_KEY, key)
         print(f"Deleted {key} from the general credentials")
+        logging.info("Completed delete_global_secret")
 
     def list_credentials(self, project_name: str | None = None) -> None:
         """Print the credential overview or one project's names without values."""
+        logging.info("Starting list_credentials")
         if project_name is None:
             general_keys = self.__load_bundle(GENERAL_CREDENTIALS_KEY).keys()
             current_project_keys = self.__load_bundle(self.__project_key()).keys()
@@ -387,12 +445,14 @@ class ManageCredentialsUseCase:
             print("Global Secrets:")
             for key in general_keys:
                 print(f"  {key}")
+            logging.info("Completed list_credentials")
             return
 
         project_keys = self.__load_bundle(self.__project_key(project_name)).keys()
         print(f"Project credentials ({project_name}):")
         for key in project_keys:
             print(f"  {key}")
+        logging.info("Completed list_credentials")
 
     # =================== #
     #                     #
@@ -411,6 +471,7 @@ class ManageCredentialsUseCase:
             version-controlled location.
         """
 
+        logging.info("Starting export_credentials")
         export_root = pathlib.Path.home() / home_relative_directory
         export_root.mkdir(parents=True, exist_ok=True)
 
@@ -432,6 +493,7 @@ class ManageCredentialsUseCase:
             f"Exported {exported_keys} credentials across "
             f"{len(exported_projects) + 1} files to {export_root}"
         )
+        logging.info("Completed export_credentials")
 
     def export_store(self, home_relative_directory: str) -> None:
         """Mirror every stored document as a JSON file tree.
@@ -446,6 +508,7 @@ class ManageCredentialsUseCase:
             Destination directory, given relative to the home directory.
         """
 
+        logging.info("Starting export_store")
         export_root = pathlib.Path.home() / home_relative_directory
         export_root.mkdir(parents=True, exist_ok=True)
 
@@ -453,7 +516,7 @@ class ManageCredentialsUseCase:
         # cannot become a path leaves no half-exported tree behind.
         storage_keys = self.__credential_database.keys(STORE_KEY_PATTERN)
         document_paths = {
-            storage_key: export_root / document_relative_path(storage_key)
+            storage_key: export_root / get_document_relative_path(storage_key)
             for storage_key in storage_keys
         }
 
@@ -474,6 +537,7 @@ class ManageCredentialsUseCase:
             "These documents hold credentials in plaintext. Delete them once "
             "they have been imported."
         )
+        logging.info("Completed export_store")
 
     def import_store(self, home_relative_directory: str) -> None:
         """Merge an exported JSON file tree into the current store.
@@ -489,8 +553,10 @@ class ManageCredentialsUseCase:
             Directory holding an exported store, relative to the home directory.
         """
 
+        logging.info("Starting import_store")
         import_root = pathlib.Path.home() / home_relative_directory
         if not import_root.is_dir():
+            logging.warning("Failed import_store")
             raise FileNotFoundError(
                 f"No exported credential store was found at {import_root}."
             )
@@ -499,7 +565,7 @@ class ManageCredentialsUseCase:
         written_values = 0
         skipped_names_by_key: dict[str, list[str]] = {}
         for document_path in sorted(import_root.rglob(f"*{DOCUMENT_FILE_SUFFIX}")):
-            storage_key = storage_key_from_document_path(
+            storage_key = get_storage_key_from_document_path(
                 document_path.relative_to(import_root)
             )
             incoming_document = entities.CredentialDocument.from_json_value(
@@ -514,7 +580,10 @@ class ManageCredentialsUseCase:
             if not merge.changed():
                 continue
             if not self.__credential_database.put(storage_key, stored_document.value()):
-                raise RuntimeError(f"Credential document '{storage_key}' was not stored.")
+                logging.warning("Failed import_store")
+                raise RuntimeError(
+                    f"Credential document '{storage_key}' was not stored."
+                )
             written_documents += 1
             written_values += len(merge.written)
 
@@ -524,6 +593,7 @@ class ManageCredentialsUseCase:
         )
         for storage_key, skipped_names in skipped_names_by_key.items():
             print(f"  kept in {storage_key}: {', '.join(skipped_names)}")
+        logging.info("Completed import_store")
 
     # ================================= #
     #                                   #
@@ -546,6 +616,7 @@ class ManageCredentialsUseCase:
             Configuration naming where the project keeps its infrastructure code.
         """
 
+        logging.info("Starting setup_credentials")
         adapters_directory = project_config.project_root.adapters_output_directory
         destination_directory = self.__project_root.joinpath(*adapters_directory[:-1])
 
@@ -554,14 +625,22 @@ class ManageCredentialsUseCase:
         import_parts = relative_directory.parts
         if import_parts and import_parts[0] == "src":
             import_parts = import_parts[1:]
-        rendered = configuration_bundle_support(source_directory, ".".join(import_parts))
-        rendered.update({
-            (relative_directory / name).as_posix(): (source_directory / name).read_bytes().decode("utf-8")
-            for name in CONFIG_SNIPPET_FILE_NAMES
-        })
+        rendered = get_configuration_bundle_support(
+            source_directory, ".".join(import_parts)
+        )
+        rendered.update(
+            {
+                (relative_directory / name)
+                .as_posix(): (source_directory / name)
+                .read_bytes()
+                .decode("utf-8")
+                for name in CONFIG_SNIPPET_FILE_NAMES
+            }
+        )
         for name in rendered:
             destination = self.__project_root / name
             if destination.exists():
+                logging.warning("Failed setup_credentials")
                 raise FileExistsError(
                     f"{destination} already exists. Remove it before running setup again."
                 )
@@ -573,5 +652,8 @@ class ManageCredentialsUseCase:
         print(
             f"Copied the credential configuration bundle into {destination_directory}"
         )
-        print("Merge docs/snippets/config/requirements.txt into runtime dependencies and "
-              "requirements-test.txt into test dependencies, then run the copied offline tests.")
+        print(
+            "Merge docs/snippets/config/requirements.txt into runtime dependencies and "
+            "requirements-test.txt into test dependencies, then run the copied offline tests."
+        )
+        logging.info("Completed setup_credentials")

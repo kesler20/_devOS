@@ -9,11 +9,17 @@ import typing
 
 import pydantic
 
+FailureCategory = typing.Literal[
+    "configuration", "conflict", "service", "verification", "permission", "tooling"
+]
+
 
 class ScaffoldError(RuntimeError):
     """Report a safe failure and any operations completed before it."""
 
-    def __init__(self, operation: str, reason: str, category: str = "configuration"):
+    def __init__(
+        self, operation: str, reason: str, category: FailureCategory = "configuration"
+    ):
         self.operation = operation
         self.reason = reason
         self.category = category
@@ -42,8 +48,10 @@ class BootstrapSource(InputModel):
     @pydantic.field_validator("secret_keys")
     @classmethod
     def validate_keys(cls, value: dict[str, str]) -> dict[str, str]:
-        allowed = {f"devos_redis_{key}" for key in
-                   ("url", "host", "port", "username", "password", "db", "ssl")}
+        allowed = {
+            f"devos_redis_{key}"
+            for key in ("url", "host", "port", "username", "password", "db", "ssl")
+        }
         if set(value) - allowed or any(not key for key in value.values()):
             raise ValueError("Bootstrap references must name canonical Redis variables")
         return value
@@ -53,7 +61,9 @@ class StoreSelection(InputModel):
     """Select a store and the source chosen for each differing credential key."""
 
     bootstrap: BootstrapSource
-    resolutions: dict[str, typing.Literal["local", "stored"]] = pydantic.Field(default_factory=dict)
+    resolutions: dict[str, typing.Literal["local", "stored"]] = pydantic.Field(
+        default_factory=dict
+    )
 
 
 class GitHubSelection(InputModel):
@@ -88,10 +98,11 @@ class ScaffoldSpec(InputModel):
     project_name: str
     description: str
     stack: Stack
-    local_store: StoreSelection
-    ci_store: StoreSelection
+    credential_resolutions: dict[str, typing.Literal["local", "stored"]] = (
+        pydantic.Field(default_factory=dict)
+    )
+    ci_store: StoreSelection | None = None
     project_path: pathlib.Path | None = None
-    secret_source_env_file: pathlib.Path | None = None
     github: GitHubSelection | None = None
     automation_engine_root: pathlib.Path | None = None
     agent_guides: list[str] = pydantic.Field(default_factory=list)
@@ -119,7 +130,9 @@ class ScaffoldSpec(InputModel):
         # Publishing is deliberately outside this workflow, including validation.
         for command in value:
             if command[0] in {"git", "gh"}:
-                raise ValueError("Validation commands cannot perform Git or GitHub operations")
+                raise ValueError(
+                    "Validation commands cannot perform Git or GitHub operations"
+                )
         return value
 
     @pydantic.field_validator("project_name")
@@ -146,16 +159,26 @@ class ScaffoldSpec(InputModel):
     def root(self) -> pathlib.Path:
         """Resolve the explicitly selected Protocol project."""
         protocol = self.protocol_root.expanduser().resolve()
-        root = (self.project_path or protocol / self.project_name).expanduser().resolve()
+        root = (
+            (self.project_path or protocol / self.project_name).expanduser().resolve()
+        )
         if root == protocol or not root.is_relative_to(protocol):
-            raise ScaffoldError("preflight", "Project must be inside the selected Protocol root")
+            raise ScaffoldError(
+                "preflight", "Project must be inside the selected Protocol root"
+            )
         return root
 
     def engine_root(self) -> pathlib.Path:
-        return (self.automation_engine_root or self.protocol_root / "automation_engine").expanduser().resolve()
+        return (
+            (self.automation_engine_root or self.protocol_root / "automation_engine")
+            .expanduser()
+            .resolve()
+        )
 
     def package(self) -> str:
-        value = self.python_package or self.project_name.replace("-", "_").replace(".", "_")
+        value = self.python_package or self.project_name.replace("-", "_").replace(
+            ".", "_"
+        )
         if not value.isidentifier():
             raise ScaffoldError("preflight", "Choose a valid Python package name")
         return value
@@ -164,8 +187,12 @@ class ScaffoldSpec(InputModel):
         directory = self.config_path or f"src/{self.package()}/infrastructure"
         if "\\" in directory or ":" in directory:
             raise ScaffoldError("preflight", "Use forward slashes in config paths")
-        if self.stack == Stack.FULLSTACK and pathlib.PurePosixPath(directory).is_relative_to(self.frontend_path):
-            raise ScaffoldError("preflight", "Credential loading cannot be placed in the frontend")
+        if self.stack == Stack.FULLSTACK and pathlib.PurePosixPath(
+            directory
+        ).is_relative_to(self.frontend_path):
+            raise ScaffoldError(
+                "preflight", "Credential loading cannot be placed in the frontend"
+            )
         return directory
 
     def has_python(self) -> bool:
@@ -181,7 +208,7 @@ class ScaffoldInspection(pydantic.BaseModel):
     bootstrap_keys: list[str] = pydantic.Field(default_factory=list)
     files: dict[str, str] = pydantic.Field(default_factory=dict)
     credential_comparison: dict[str, list[str]] = pydantic.Field(default_factory=dict)
-    store_state: str = "unconfigured"
+    store_state: typing.Literal["unconfigured", "read"] = "unconfigured"
     setup_requirements: list[str] = pydantic.Field(default_factory=list)
 
 
@@ -200,4 +227,9 @@ class ScaffoldResult(pydantic.BaseModel):
     files: list[str]
     staged_files: list[str]
     completed: list[str]
-    pending: list[str] = pydantic.Field(default_factory=lambda: ["Kesler commits and pushes", "Verify Actions after push"])
+    pending: list[str] = pydantic.Field(
+        default_factory=lambda: [
+            "Kesler commits and pushes",
+            "Verify Actions after push",
+        ]
+    )
